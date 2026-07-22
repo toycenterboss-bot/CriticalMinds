@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-optika_dev_pass}
       POSTGRES_DB: optika
     ports:
-      - "5432:5432"
+      - "15433:5432"
     volumes:
       - optika_pgdata:/var/lib/postgresql/data
     healthcheck:
