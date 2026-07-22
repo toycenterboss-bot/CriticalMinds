@@ -48,7 +48,8 @@ def me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
 
 @router.get("/lessons", response_model=list[LessonListItem])
 def lessons(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    week = current_week(_my_group(db, user), _utcnow())
+    # Решение Андрея 2026-07-22: недельный гейтинг отключён — открыты все уроки.
+    # (Механика current_week остаётся для квизов и кураторского дашборда.)
     done = {
         p.lesson_id for p in
         db.query(LessonProgress).filter(
@@ -59,7 +60,7 @@ def lessons(user: User = Depends(get_current_user), db: Session = Depends(get_db
     return [
         LessonListItem(
             id=l.id, week=l.week, ord=l.ord, title=l.title,
-            completed=l.id in done, available=l.week <= week,
+            completed=l.id in done, available=True,
         )
         for l in db.query(Lesson).order_by(Lesson.week, Lesson.ord)
     ]
@@ -71,8 +72,6 @@ def lesson(lesson_id: int, user: User = Depends(get_current_user),
     l = db.get(Lesson, lesson_id)
     if l is None:
         raise HTTPException(404, "Урок не найден")
-    if l.week > current_week(_my_group(db, user), _utcnow()):
-        raise HTTPException(403, "Урок ещё не открыт — спиральность важнее спешки")
     return LessonOut(id=l.id, week=l.week, ord=l.ord, title=l.title, steps=l.steps)
 
 
@@ -114,7 +113,15 @@ def journal(user: User = Depends(get_current_user), db: Session = Depends(get_db
 @router.post("/journal", response_model=JournalEntryOut, status_code=201)
 def journal_add(body: JournalEntryIn, user: User = Depends(get_current_user),
                 db: Session = Depends(get_db)):
-    row = JournalEntry(user_id=user.id, **body.model_dump())
+    text = body.decision
+    if body.args:
+        text += f"\nАргументы: {body.args}"
+    if body.expect:
+        text += f"\nОжидаю: {body.expect}"
+    row = JournalEntry(
+        user_id=user.id, text=text, confidence=body.confidence,
+        label=body.label, shared=body.shared,
+    )
     db.add(row)
     db.commit()
     return JournalEntryOut(

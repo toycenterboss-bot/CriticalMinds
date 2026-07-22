@@ -24,8 +24,13 @@ export async function api(path, options = {}) {
     }
   }
   if (!res.ok) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(detail.detail || `Ошибка ${res.status}`)
+    const data = await res.json().catch(() => ({}))
+    let msg = data.detail
+    if (Array.isArray(msg)) {
+      // pydantic 422: [{msg: "Value error, ..."}]
+      msg = msg.map((e) => (e.msg || '').replace(/^Value error,\s*/, '')).join('; ')
+    }
+    throw new Error(msg || `Ошибка ${res.status}`)
   }
   return res.status === 204 ? null : res.json()
 }

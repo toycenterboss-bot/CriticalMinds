@@ -9,10 +9,14 @@ import CalibrationChart from '../components/CalibrationChart.jsx'
 import Quiz from '../components/Quiz.jsx'
 import { CARD1 } from '../data/meeting.js'
 
-const entryToText = (e) =>
-  e.decision +
-  (e.args ? `\nАргументы: ${e.args}` : '') +
-  (e.expect ? `\nОжидаю: ${e.expect}` : '')
+// Мягкая клиентская проверка (жёсткая — на бэкенде, schemas.clean_text)
+export const validateEntry = (e) => {
+  const d = (e.decision || '').trim()
+  if (d.length < 8) return 'Решение: минимум 8 символов — опишите словами'
+  if ([...d].filter((ch) => ch.toLowerCase() !== ch.toUpperCase()).length < 5)
+    return 'Решение: похоже на набор символов — нужна осмысленная запись'
+  return null
+}
 
 export default function Participant({ me }) {
   const [tab, setTab] = useState('home')
@@ -25,6 +29,8 @@ export default function Participant({ me }) {
   const [showQuiz, setShowQuiz] = useState(false)
   const [newPred, setNewPred] = useState({ text: '', conf: 70 })
   const [newEntry, setNewEntry] = useState({ decision: '', args: '', expect: '', conf: 70, shared: false })
+  const [journalErr, setJournalErr] = useState(null)
+  const [predErr, setPredErr] = useState(null)
 
   const reload = useCallback(() => {
     api('/me/lessons').then(setLessons).catch(() => {})
@@ -49,23 +55,28 @@ export default function Participant({ me }) {
   }
 
   const addJournal = async (e) => {
+    const clientErr = validateEntry(e)
+    if (clientErr) throw new Error(clientErr)
     await api('/me/journal', {
       method: 'POST',
       body: JSON.stringify({
-        text: entryToText(e), confidence: e.conf,
-        label: e.tag || 'запись', shared: !!e.shared,
+        decision: e.decision, args: e.args || null, expect: e.expect || null,
+        confidence: e.conf, label: e.tag || 'запись', shared: !!e.shared,
       }),
     })
     reload()
   }
 
   const addPred = async () => {
-    await api('/me/predictions', {
-      method: 'POST',
-      body: JSON.stringify({ text: newPred.text, confidence: newPred.conf }),
-    })
-    setNewPred({ text: '', conf: 70 })
-    reload()
+    setPredErr(null)
+    try {
+      await api('/me/predictions', {
+        method: 'POST',
+        body: JSON.stringify({ text: newPred.text, confidence: newPred.conf }),
+      })
+      setNewPred({ text: '', conf: 70 })
+      reload()
+    } catch (err) { setPredErr(err.message) }
   }
 
   const resolvePred = async (id, outcome) => {
@@ -196,9 +207,13 @@ export default function Participant({ me }) {
                 <input type="checkbox" checked={newEntry.shared} onChange={(e) => setNewEntry({ ...newEntry, shared: e.target.checked })} style={{ accentColor: C.teal }} />
                 Поделиться с группой на встрече
               </label>
+              {journalErr && <p style={{ color: C.red, fontSize: 13, margin: 0 }}>{journalErr}</p>}
               <Btn disabled={!newEntry.decision} onClick={async () => {
-                await addJournal({ ...newEntry, tag: 'запись' })
-                setNewEntry({ decision: '', args: '', expect: '', conf: 70, shared: false })
+                setJournalErr(null)
+                try {
+                  await addJournal({ ...newEntry, tag: 'запись' })
+                  setNewEntry({ decision: '', args: '', expect: '', conf: 70, shared: false })
+                } catch (err) { setJournalErr(err.message) }
               }}>
                 Записать
               </Btn>
@@ -242,6 +257,7 @@ export default function Participant({ me }) {
                     Вероятность, что сбудется: <b style={{ color: C.teal }}>{newPred.conf}%</b>
                     <input type="range" min="5" max="95" step="5" value={newPred.conf} onChange={(e) => setNewPred({ ...newPred, conf: +e.target.value })} style={{ width: '100%', accentColor: C.teal }} />
                   </label>
+                  {predErr && <p style={{ color: C.red, fontSize: 13, margin: 0 }}>{predErr}</p>}
                   <Btn disabled={!newPred.text} onClick={addPred}>Поставить</Btn>
                 </div>
               </Card>

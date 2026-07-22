@@ -14,10 +14,13 @@ export default function LessonPlayer({ lesson, onDone, onJournal }) {
   const [checkDone, setCheckDone] = useState(false)
   const [entry, setEntry] = useState({ decision: '', args: '', expect: '', conf: 70 })
   const [entrySaved, setEntrySaved] = useState(false)
+  const [entryErr, setEntryErr] = useState(null)
+  const [freeText, setFreeText] = useState('')
 
   const s = lesson.steps[step]
   const next = () => {
-    setRevealed(false); setChoice(null); setCheckSel({}); setCheckDone(false); setNumAns('')
+    setRevealed(false); setChoice(null); setCheckSel({}); setCheckDone(false)
+    setNumAns(''); setFreeText(''); setEntryErr(null)
     if (step < lesson.steps.length - 1) setStep(step + 1)
     else onDone()
   }
@@ -81,6 +84,27 @@ export default function LessonPlayer({ lesson, onDone, onJournal }) {
         </div>
       )}
 
+      {s.type === 'hookText' && (
+        <div>
+          <Tag color={C.marker} text={C.ink}>Крючок</Tag>
+          <p style={{ fontSize: 16, lineHeight: 1.55, margin: '12px 0', whiteSpace: 'pre-line' }}>{s.prompt}</p>
+          {!revealed ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <textarea value={freeText} onChange={(e) => setFreeText(e.target.value)}
+                        placeholder={s.placeholder} rows={4} style={inputStyle} />
+              <div><Btn onClick={() => setRevealed(true)} disabled={freeText.trim().length < 5}>Готово</Btn></div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ background: C.markerSoft, borderLeft: `4px solid ${C.marker}`, padding: '12px 16px', borderRadius: '0 10px 10px 0', fontSize: 15, lineHeight: 1.55 }}>
+                {s.reveal}
+              </div>
+              <div style={{ marginTop: 14 }}><Btn onClick={next}>Дальше</Btn></div>
+            </div>
+          )}
+        </div>
+      )}
+
       {s.type === 'concept' && (
         <div>
           <Tag>Концепт</Tag>
@@ -111,7 +135,7 @@ export default function LessonPlayer({ lesson, onDone, onJournal }) {
                         width: '100%', textAlign: 'left', padding: '11px 15px', borderRadius: 10, fontSize: 14.5, cursor: 'pointer',
                         fontFamily: fonts.sans,
                         border: checkDone ? `2px solid ${right ? C.teal : C.red}` : `1.5px solid ${sel ? C.ink : C.grid}`,
-                        background: checkDone ? (right ? C.tealSoft : C.redSoft) : sel ? C.markerSoft : C.white,
+                        background: checkDone ? (right ? C.tealSoft : C.redSoft) : sel ? C.paper : C.white,
                       }}
                     >
                       {!s.labels && (
@@ -162,7 +186,14 @@ export default function LessonPlayer({ lesson, onDone, onJournal }) {
                 Уверенность: <b style={{ color: C.teal }}>{entry.conf}%</b>
                 <input type="range" min="50" max="99" value={entry.conf} onChange={(e) => setEntry({ ...entry, conf: +e.target.value })} style={{ width: '100%', accentColor: C.teal }} />
               </label>
-              <Btn disabled={!entry.decision} onClick={async () => { await onJournal({ ...entry, tag: 'Урок 3 · первая запись' }); setEntrySaved(true) }}>
+              {entryErr && <p style={{ color: C.red, fontSize: 13, margin: 0 }}>{entryErr}</p>}
+              <Btn disabled={!entry.decision} onClick={async () => {
+                setEntryErr(null)
+                try {
+                  await onJournal({ ...entry, tag: 'Урок 3 · первая запись' })
+                  setEntrySaved(true)
+                } catch (err) { setEntryErr(err.message) }
+              }}>
                 Сохранить в дневник
               </Btn>
             </div>
