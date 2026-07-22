@@ -1,32 +1,37 @@
 # Tech Context
 
-## Текущий стек (прототип)
-- React (функциональные компоненты, hooks), один файл JSX
-- Стили: inline styles + дизайн-токены в JS, без CSS-фреймворков
-- Шрифты: IBM Plex Sans / IBM Plex Mono через Google Fonts @import
-- График калибровки: чистый SVG (без chart-библиотек)
-- Состояние: useState в памяти. Персистентности нет (прототип запускался как артефакт claude.ai, где browser storage недоступен)
+## Стек MVP (РЕШЕНИЕ ПРИНЯТО 2026-07-22, детали: docs/architecture.md)
+- СУБД: **PostgreSQL 16** в Docker (docker-compose.yml в корне)
+- Бэкенд: **FastAPI** (Python 3.11+), SQLAlchemy 2.0, psycopg
+- Аутентификация: JWT (access 30 мин в памяти SPA + refresh HttpOnly cookie с ротацией), пароли argon2id, rate limit на /auth/* (slowapi)
+- Фронтенд: **React 18 + Vite**, инлайн-стили + токены палитры C, IBM Plex
+- Роли: superadmin / curator / participant; кураторов и групп много, изоляция на уровне запросов
+- Онбординг: одноразовые инвайт-ссылки (TTL 72 ч, хэш в БД), без SMTP
 
-## Ограничения среды прототипа
-- Артефакты claude.ai: НЕ использовать localStorage/sessionStorage — падают. Только in-memory state.
-- Один файл, default export, без required props.
+## Структура репозитория
+```
+backend/          FastAPI: app/{models,schemas,auth,flags,seed}.py + routers/ + tests/
+frontend/         Vite+React SPA: src/pages/{Login,Join,Participant,Curator,Admin}.jsx
+docker-compose.yml  Postgres 16 (для dev — только БД)
+.env.example      секреты: JWT_SECRET, SEED_ADMIN_*, DB_PASSWORD
+docs/architecture.md  архитектура MVP (роли, модель данных, API, безопасность)
+memory-bank/  docs/  prototype/  CLAUDE.md   — как раньше
+```
 
-## Целевой стек (обсуждается, решения не приняты)
-Кандидаты для MVP с реальной группой 7 человек:
-- Фронт: React (перенос движка уроков из прототипа)
-- Бэкенд: лёгкий (FastAPI — уже знаком по Self-Service Platform) либо BaaS (Supabase/Firebase)
-- Критично для бэкенда: разделение данных участник/куратор на уровне API (см. systemPatterns §3)
-- Push/напоминания: обязательны для дневника и уроков — влияет на выбор платформы (PWA vs нативная оболочка)
+## Запуск на Mac (Quickstart — подробнее в README.md)
+```
+cp .env.example .env   # задать JWT_SECRET (openssl rand -hex 32) и SEED_ADMIN_PASSWORD
+docker compose up -d db
+cd backend && python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt && python -m app.seed && uvicorn app.main:app --reload
+cd frontend && npm install && npm run dev   # http://localhost:5173
+```
+
+## Ограничения и заметки
+- Email вида *.local не проходят валидацию EmailStr — для dev использовать *.app / example.com.
+- Прототип-артефакт (prototype/): НЕ использовать localStorage — только in-memory state.
+- Alembic-миграций пока нет (create_all в seed) — ввести ДО запуска с реальной группой.
+- Push/напоминания: развилка PWA vs нативная оболочка всё ещё открыта.
 
 ## Репозиторий
-https://github.com/toycenterboss-bot/CriticalMinds
-Структура:
-```
-memory-bank/     — контекст проекта для AI-ассистентов (этот банк)
-docs/            — карта 36 уроков, сценарные карточки 12 встреч
-prototype/       — рабочий прототип «Оптика» (jsx-артефакт)
-CLAUDE.md        — инструкция для Claude Code: читать memory-bank перед работой
-```
-
-## Как запустить прототип
-Вставить содержимое `prototype/optika_prototype.jsx` как React-артефакт в claude.ai, либо в Vite-проект (`npm create vite@latest -- --template react`, файл → App.jsx).
+https://github.com/toycenterboss-bot/CriticalMinds (push работает по classic-токену)
