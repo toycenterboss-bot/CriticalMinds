@@ -1,17 +1,17 @@
-// Дизайн-токены «лабораторный журнал» — палитра C из прототипа.
+// Дизайн-токены «лабораторный журнал» — палитра C из прототипа, БЕЗ изменений.
 // Правило проекта: новые цвета вне палитры не вводить.
 export const C = {
-  paper: '#f6f4ee',
-  grid: '#e3dfd3',
-  ink: '#26241f',
-  inkSoft: '#5c584e',
-  teal: '#1f6f6b',
-  tealSoft: '#e3efee',
-  marker: '#e0b13e',
-  markerSoft: '#f7ecd2',
-  danger: '#a4442e',
-  card: '#fffdf8',
-  line: '#d8d3c4',
+  paper: '#F3F5F4',
+  grid: '#DCE3E1',
+  ink: '#182420',
+  inkSoft: '#4B5B55',
+  teal: '#0E6E64',
+  tealSoft: '#DCEEEB',
+  marker: '#FFDE59',
+  markerSoft: '#FFF3D6',
+  red: '#C2492F',
+  redSoft: '#F9E3DC',
+  white: '#FFFFFF',
 }
 
 export const fonts = {
@@ -25,4 +25,10 @@ export const gridBg = {
     `linear-gradient(${C.grid} 1px, transparent 1px),` +
     `linear-gradient(90deg, ${C.grid} 1px, transparent 1px)`,
   backgroundSize: '24px 24px',
+}
+
+export const inputStyle = {
+  fontFamily: fonts.sans, fontSize: 14.5, padding: '10px 14px',
+  border: `1.5px solid ${C.grid}`, borderRadius: 10, background: C.paper,
+  width: '100%', boxSizing: 'border-box',
 }

@@ -12,8 +12,8 @@ from ..models import (
 )
 from ..schemas import (
     CalibrationPoint, JournalEntryIn, JournalEntryOut, LessonListItem, LessonOut,
-    MeOut, PredictionIn, PredictionOut, QuizQuestionOut, QuizResultOut,
-    QuizSubmitIn, ResolveIn,
+    MeOut, PredictionIn, PredictionOut, QuizCurrentOut, QuizQuestionOut,
+    QuizQuestionResult, QuizResultOut, QuizSubmitIn, ResolveIn,
 )
 
 router = APIRouter(prefix="/me", tags=["me"])
@@ -163,11 +163,20 @@ def prediction_resolve(pred_id: int, body: ResolveIn,
     )
 
 
-@router.get("/quiz/current", response_model=list[QuizQuestionOut])
+@router.get("/quiz/current", response_model=QuizCurrentOut)
 def quiz_current(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     week = current_week(_my_group(db, user), _utcnow())
     qs = db.query(QuizQuestion).filter(QuizQuestion.week == week).all()
-    return [QuizQuestionOut(id=q.id, question=q.question, unit=q.unit) for q in qs]
+    attempt = db.query(QuizAttempt).filter(
+        QuizAttempt.user_id == user.id, QuizAttempt.week == week,
+    ).first()
+    return QuizCurrentOut(
+        week=week,
+        attempted=attempt is not None,
+        hits=attempt.hits if attempt else None,
+        total=attempt.total if attempt else None,
+        questions=[QuizQuestionOut(id=q.id, question=q.question, unit=q.unit) for q in qs],
+    )
 
 
 @router.post("/quiz", response_model=QuizResultOut)
@@ -178,6 +187,7 @@ def quiz_submit(body: QuizSubmitIn, user: User = Depends(get_current_user),
     ).first():
         raise HTTPException(409, "Квиз этой недели уже сдан")
     hits = 0
+    results = []
     attempt = QuizAttempt(user_id=user.id, week=body.week, hits=0, total=len(body.answers))
     db.add(attempt)
     db.flush()
@@ -187,11 +197,12 @@ def quiz_submit(body: QuizSubmitIn, user: User = Depends(get_current_user),
             raise HTTPException(404, f"Вопрос {a.question_id} не найден")
         hit = a.lo <= q.answer <= a.hi
         hits += hit
+        results.append(QuizQuestionResult(question_id=q.id, answer=q.answer, hit=hit))
         db.add(QuizAnswer(attempt_id=attempt.id, question_id=q.id,
                           lo=a.lo, hi=a.hi, hit=hit))
     attempt.hits = hits
     db.commit()
-    return QuizResultOut(hits=hits, total=attempt.total)
+    return QuizResultOut(hits=hits, total=attempt.total, results=results)
 
 
 @router.get("/calibration", response_model=list[CalibrationPoint])

@@ -104,6 +104,14 @@ class QuizQuestionOut(BaseModel):
     unit: str | None
 
 
+class QuizCurrentOut(BaseModel):
+    week: int
+    attempted: bool
+    hits: int | None
+    total: int | None
+    questions: list[QuizQuestionOut]
+
+
 class QuizAnswerIn(BaseModel):
     question_id: int
     lo: float
@@ -115,9 +123,16 @@ class QuizSubmitIn(BaseModel):
     answers: list[QuizAnswerIn]
 
 
+class QuizQuestionResult(BaseModel):
+    question_id: int
+    answer: float
+    hit: bool
+
+
 class QuizResultOut(BaseModel):
     hits: int
     total: int
+    results: list[QuizQuestionResult]
 
 
 class CalibrationPoint(BaseModel):
