@@ -92,44 +92,62 @@ export default function LessonPlayer({ lesson, onDone, onJournal }) {
         </div>
       )}
 
-      {s.type === 'check' && (
-        <div>
-          <Tag>Проверка</Tag>
-          <p style={{ fontSize: 15.5, fontWeight: 600, margin: '12px 0' }}>{s.prompt}</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {s.options.map((o, i) => {
-              const sel = checkSel[i]
-              return (
-                <div key={i}>
-                  <button
-                    onClick={() => !checkDone && setCheckSel({ ...checkSel, [i]: !sel })}
-                    style={{
-                      width: '100%', textAlign: 'left', padding: '11px 15px', borderRadius: 10, fontSize: 14.5, cursor: 'pointer',
-                      fontFamily: fonts.sans,
-                      border: `1.5px solid ${checkDone ? (!!sel === o.ok ? C.teal : C.red) : sel ? C.ink : C.grid}`,
-                      background: checkDone ? (!!sel === o.ok ? C.tealSoft : C.redSoft) : sel ? C.paper : C.white,
-                    }}
-                  >
-                    {o.t}
-                    {s.labels && <span style={{ float: 'right', fontFamily: fonts.mono, fontSize: 11, color: C.inkSoft }}>{sel ? s.labels[0] : s.labels[1]}</span>}
-                  </button>
-                  {checkDone && (
-                    <p style={{ fontSize: 13, color: C.inkSoft, margin: '5px 4px 0', lineHeight: 1.5 }}>{o.fb}</p>
-                  )}
-                </div>
-              )
-            })}
+      {s.type === 'check' && (() => {
+        const isRight = (o, i) => !!checkSel[i] === o.ok
+        const rightCount = s.options.filter((o, i) => isRight(o, i)).length
+        return (
+          <div>
+            <Tag>Проверка</Tag>
+            <p style={{ fontSize: 15.5, fontWeight: 600, margin: '12px 0' }}>{s.prompt}</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {s.options.map((o, i) => {
+                const sel = checkSel[i]
+                const right = isRight(o, i)
+                return (
+                  <div key={i}>
+                    <button
+                      onClick={() => !checkDone && setCheckSel({ ...checkSel, [i]: !sel })}
+                      style={{
+                        width: '100%', textAlign: 'left', padding: '11px 15px', borderRadius: 10, fontSize: 14.5, cursor: 'pointer',
+                        fontFamily: fonts.sans,
+                        border: checkDone ? `2px solid ${right ? C.teal : C.red}` : `1.5px solid ${sel ? C.ink : C.grid}`,
+                        background: checkDone ? (right ? C.tealSoft : C.redSoft) : sel ? C.markerSoft : C.white,
+                      }}
+                    >
+                      {!s.labels && (
+                        <span style={{ fontFamily: fonts.mono, marginRight: 8, color: sel ? C.teal : C.inkSoft }}>
+                          {sel ? '■' : '▢'}
+                        </span>
+                      )}
+                      {o.t}
+                      <span style={{ float: 'right', fontFamily: fonts.mono, fontSize: 11, fontWeight: 600, color: checkDone ? (right ? C.teal : C.red) : C.inkSoft }}>
+                        {s.labels ? (sel ? s.labels[0] : s.labels[1]) : ''}
+                        {checkDone && (right ? ' ✓ верно' : ' ✗ мимо')}
+                      </span>
+                    </button>
+                    {checkDone && (
+                      <p style={{ fontSize: 13, color: C.inkSoft, margin: '5px 4px 0', lineHeight: 1.5 }}>{o.fb}</p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            {s.labels && !checkDone && (
+              <p style={{ fontSize: 12.5, color: C.inkSoft, marginTop: 8 }}>
+                Нажатие переключает: {s.labels[0]} / {s.labels[1]}. Отметьте все как «{s.labels[0]}», что считаете фактами.
+              </p>
+            )}
+            {checkDone && (
+              <div style={{ marginTop: 12, fontFamily: fonts.mono, fontSize: 13, fontWeight: 600, color: rightCount === s.options.length ? C.teal : C.red }}>
+                Верно: {rightCount} из {s.options.length}
+              </div>
+            )}
+            <div style={{ marginTop: 14 }}>
+              {!checkDone ? <Btn onClick={() => setCheckDone(true)}>Проверить</Btn> : <Btn onClick={next}>Дальше</Btn>}
+            </div>
           </div>
-          {s.labels && !checkDone && (
-            <p style={{ fontSize: 12.5, color: C.inkSoft, marginTop: 8 }}>
-              Нажатие переключает: {s.labels[0]} / {s.labels[1]}. Отметьте все как «{s.labels[0]}», что считаете фактами.
-            </p>
-          )}
-          <div style={{ marginTop: 14 }}>
-            {!checkDone ? <Btn onClick={() => setCheckDone(true)}>Проверить</Btn> : <Btn onClick={next}>Дальше</Btn>}
-          </div>
-        </div>
-      )}
+        )
+      })()}
 
       {s.type === 'firstEntry' && (
         <div>
