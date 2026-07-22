@@ -127,15 +127,40 @@ export default function LessonPlayer({ lesson, onDone, onJournal }) {
               {s.options.map((o, i) => {
                 const sel = checkSel[i]
                 const right = isRight(o, i)
+                // Разметка после проверки — однозначная:
+                //  · верный вариант: зелёный, «✓ верно» (пропущенный верный — красный «✗ пропущен»)
+                //  · выбранный неверный: красный, «✗ лишний»
+                //  · невыбранный неверный: нейтральный, без пометки
+                let border = `1.5px solid ${sel ? C.ink : C.grid}`
+                let bg = sel ? C.paper : C.white
+                let mark = ''
+                let markColor = C.inkSoft
+                if (checkDone) {
+                  if (s.labels) {
+                    border = `2px solid ${right ? C.teal : C.red}`
+                    bg = right ? C.tealSoft : C.redSoft
+                    mark = right ? ' ✓ верно' : ' ✗ мимо'
+                    markColor = right ? C.teal : C.red
+                  } else if (o.ok && sel) {
+                    border = `2px solid ${C.teal}`; bg = C.tealSoft
+                    mark = '✓ верно'; markColor = C.teal
+                  } else if (o.ok && !sel) {
+                    border = `2px solid ${C.red}`; bg = C.redSoft
+                    mark = '✗ пропущен верный'; markColor = C.red
+                  } else if (!o.ok && sel) {
+                    border = `2px solid ${C.red}`; bg = C.redSoft
+                    mark = '✗ лишний'; markColor = C.red
+                  } else {
+                    border = `1.5px solid ${C.grid}`; bg = C.white
+                  }
+                }
                 return (
                   <div key={i}>
                     <button
                       onClick={() => !checkDone && setCheckSel({ ...checkSel, [i]: !sel })}
                       style={{
                         width: '100%', textAlign: 'left', padding: '11px 15px', borderRadius: 10, fontSize: 14.5, cursor: 'pointer',
-                        fontFamily: fonts.sans,
-                        border: checkDone ? `2px solid ${right ? C.teal : C.red}` : `1.5px solid ${sel ? C.ink : C.grid}`,
-                        background: checkDone ? (right ? C.tealSoft : C.redSoft) : sel ? C.paper : C.white,
+                        fontFamily: fonts.sans, border, background: bg,
                       }}
                     >
                       {!s.labels && (
@@ -144,9 +169,9 @@ export default function LessonPlayer({ lesson, onDone, onJournal }) {
                         </span>
                       )}
                       {o.t}
-                      <span style={{ float: 'right', fontFamily: fonts.mono, fontSize: 11, fontWeight: 600, color: checkDone ? (right ? C.teal : C.red) : C.inkSoft }}>
+                      <span style={{ float: 'right', fontFamily: fonts.mono, fontSize: 11, fontWeight: 600, color: markColor }}>
                         {s.labels ? (sel ? s.labels[0] : s.labels[1]) : ''}
-                        {checkDone && (right ? ' ✓ верно' : ' ✗ мимо')}
+                        {checkDone ? ` ${mark}` : ''}
                       </span>
                     </button>
                     {checkDone && (
@@ -163,7 +188,11 @@ export default function LessonPlayer({ lesson, onDone, onJournal }) {
             )}
             {checkDone && (
               <div style={{ marginTop: 12, fontFamily: fonts.mono, fontSize: 13, fontWeight: 600, color: rightCount === s.options.length ? C.teal : C.red }}>
-                Верно: {rightCount} из {s.options.length}
+                {s.labels
+                  ? `Верно: ${rightCount} из ${s.options.length}`
+                  : rightCount === s.options.length
+                    ? '✓ Без ошибок'
+                    : `✗ Ошибок: ${s.options.length - rightCount}`}
               </div>
             )}
             <div style={{ marginTop: 14 }}>
