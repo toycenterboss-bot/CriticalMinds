@@ -31,25 +31,33 @@ export default function App() {
 
   const shell = (content) => (
     <div style={{ ...gridBg, minHeight: '100vh', fontFamily: fonts.sans, color: C.ink }}>
+      {/* Приборная панель: тёмная шапка с фирменным знаком */}
       <header style={{
         position: 'sticky', top: 0, zIndex: 20,
-        display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-        padding: '12px 24px', borderBottom: `1px solid ${C.grid}`,
-        background: 'rgba(255,255,255,.88)', backdropFilter: 'blur(6px)',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        padding: '13px 24px', background: C.ink,
+        borderBottom: `3px solid ${C.teal}`,
+        boxShadow: '0 2px 12px rgba(24,36,32,.25)',
       }}>
-        <span style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-          <span style={{ fontFamily: fonts.mono, fontWeight: 600, fontSize: 19, letterSpacing: '-.02em', color: C.ink }}>
-            ОПТИКА<span style={{ color: C.teal }}>_</span>
+        <span style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+          <span style={{ fontFamily: fonts.mono, fontWeight: 600, fontSize: 20, letterSpacing: '-.02em', color: C.white }}>
+            ОПТИКА<span style={{ color: C.marker }}>_</span>
           </span>
-          <span style={{ fontSize: 12, color: C.inkSoft }}>прибор для наблюдения за мышлением</span>
+          <span style={{ fontFamily: fonts.mono, fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,.55)' }}>
+            прибор для наблюдения за мышлением
+          </span>
         </span>
         {me && (
-          <span style={{ fontFamily: fonts.mono, fontSize: 13, color: C.inkSoft }}>
-            {me.name} · {me.role}{' '}
-            <button className="btn-ghost" onClick={handleLogout} style={{
-              marginLeft: 12, border: `1px solid ${C.grid}`, borderRadius: 8, background: 'transparent',
-              fontFamily: fonts.mono, padding: '4px 10px', color: C.ink,
-            }}>выйти</button>
+          <span style={{ fontFamily: fonts.mono, fontSize: 13, color: 'rgba(255,255,255,.75)' }}>
+            {me.name}
+            <button onClick={handleLogout} style={{
+              marginLeft: 14, border: '1px solid rgba(255,255,255,.35)', borderRadius: 8,
+              background: 'transparent', fontFamily: fonts.mono, padding: '4px 12px',
+              color: 'rgba(255,255,255,.85)',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,.12)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+            >выйти</button>
           </span>
         )}
       </header>

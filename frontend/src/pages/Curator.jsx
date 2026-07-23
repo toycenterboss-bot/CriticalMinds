@@ -76,7 +76,7 @@ export default function Curator() {
   }
 
   return (
-    <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div className="fade-up" style={{ maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ background: C.ink, color: C.white, borderRadius: 12, padding: '12px 16px', fontSize: 13, lineHeight: 1.55 }}>
         <b>Вы видите активность, но не содержание.</b> Тексты дневников и формулировки прогнозов
         участников приватны — доступны только факты и количество. Это условие честности их записей.
@@ -85,7 +85,9 @@ export default function Curator() {
       {dash ? (
         <>
           <button onClick={() => setDash(null)} style={{ background: 'none', border: 'none', color: C.teal, fontWeight: 600, fontSize: 14, cursor: 'pointer', textAlign: 'left', padding: 0, fontFamily: fonts.sans }}>← Мои группы</button>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{dash.group.name} · неделя {dash.week}</h2>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, alignSelf: 'flex-start' }}>
+            <span className="hl">{dash.group.name} · неделя {dash.week}</span>
+          </h2>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             {[
@@ -152,7 +154,9 @@ export default function Curator() {
         </>
       ) : (
         <>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Мои группы</h2>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, alignSelf: 'flex-start' }}>
+            <span className="hl">Мои группы</span>
+          </h2>
           {groups.map((g) => (
             <Card key={g.id}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

@@ -31,11 +31,12 @@ export default function LessonPlayer({ lesson, onDone, onJournal }) {
         <Tag>Урок {lesson.ord} · шаг {step + 1}/{lesson.steps.length}</Tag>
         <div style={{ display: 'flex', gap: 4 }}>
           {lesson.steps.map((_, i) => (
-            <div key={i} style={{ width: 22, height: 4, borderRadius: 2, background: i <= step ? C.teal : C.grid }} />
+            <div key={i} style={{ width: 22, height: 4, borderRadius: 2, background: i <= step ? C.teal : C.grid, transition: 'background .3s ease' }} />
           ))}
         </div>
       </div>
 
+      <div key={step} className="fade-up">
       {s.type === 'hookNumber' && (
         <div>
           <Tag color={C.marker} text={C.ink}>Крючок</Tag>
@@ -263,6 +264,7 @@ export default function LessonPlayer({ lesson, onDone, onJournal }) {
           <Btn onClick={next}>Завершить урок</Btn>
         </div>
       )}
+      </div>
     </Card>
   )
 }

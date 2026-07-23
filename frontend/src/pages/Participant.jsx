@@ -23,6 +23,60 @@ const MOODS = [
   [4, '🌤', 'ясно'], [5, '☀️', 'солнце'],
 ]
 
+// Заголовок раздела с маркерным выделением
+const H = ({ children }) => (
+  <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, alignSelf: 'flex-start' }}>
+    <span className="hl">{children}</span>
+  </h2>
+)
+
+// Прогресс-кольцо недели: уроки + квиз как шаги
+function Ring({ done, total, size = 92 }) {
+  const r = (size - 10) / 2
+  const c = 2 * Math.PI * r
+  const frac = total ? done / total : 0
+  return (
+    <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={C.grid} strokeWidth="7" />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={C.teal} strokeWidth="7"
+              strokeLinecap="round" strokeDasharray={c}
+              strokeDashoffset={c * (1 - frac)}
+              style={{ transition: 'stroke-dashoffset .6s ease' }} />
+    </svg>
+  )
+}
+
+// Карта программы: 12 недель одной строкой
+function WeekMap({ weeks, current, onPick }) {
+  return (
+    <div style={{ display: 'flex', gap: 5 }}>
+      {weeks.map((w) => {
+        const state = w.completed ? 'done' : w.unlocked ? 'open' : 'locked'
+        return (
+          <button key={w.week} onClick={() => onPick(w.week)} title={`Неделя ${w.week}`}
+                  style={{
+                    flex: 1, height: 26, borderRadius: 6, fontFamily: fonts.mono, fontSize: 10.5, fontWeight: 600,
+                    border: w.week === current ? `2px solid ${C.ink}` : `1.5px solid ${state === 'locked' ? C.grid : C.teal}`,
+                    background: state === 'done' ? C.teal : state === 'open' ? C.tealSoft : C.white,
+                    color: state === 'done' ? C.white : state === 'open' ? C.teal : C.inkSoft,
+                    opacity: state === 'locked' ? 0.6 : 1,
+                  }}>
+            {state === 'done' ? '✓' : w.week}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+const NAV_ICONS = {
+  home: 'M3 10.5 10 4l7 6.5M5 9v7h10V9',
+  lessons: 'M4 4h9a3 3 0 0 1 3 3v9H7a3 3 0 0 1-3-3V4Zm0 0v9a3 3 0 0 1 3 3',
+  journal: 'M5 3h8l3 3v11H5V3Zm8 0v3h3M8 9h6M8 12h6',
+  preds: 'M3 16 8 10l3 3 6-8M13 5h4v4',
+  meet: 'M7 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Zm6 0a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM2.5 16c.5-3 2.5-4.5 4.5-4.5s4 1.5 4.5 4.5m.5-4.5c2 0 4 1.5 4.5 4.5',
+}
+
 export default function Participant({ me }) {
   const [tab, setTab] = useState('home')
   const [lessons, setLessons] = useState([])
@@ -124,7 +178,7 @@ export default function Participant({ me }) {
     <div style={{ maxWidth: 560, margin: '0 auto', paddingBottom: 80 }}>
       {/* ГЛАВНАЯ */}
       {tab === 'home' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div className="fade-up" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
           {/* Вехи и пульс группы */}
           {lastCompletedWs && lastCompletedWs.i_was_first && lastCompletedWs.group_size > 1 && (
@@ -180,24 +234,39 @@ export default function Participant({ me }) {
             </div>
           </Card>
 
-          <Card>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <Tag>Сегодня · неделя {activeWeek}</Tag>
-                <div style={{ fontWeight: 700, fontSize: 16, marginTop: 8 }}>
+          {/* HERO: текущая неделя с прогресс-кольцом */}
+          <Card style={{ padding: 22 }}>
+            <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative', width: 92, height: 92, flexShrink: 0 }}>
+                <Ring done={(activeWs?.lessons_done || 0) + (activeWs?.quiz_attempted ? 1 : 0)}
+                      total={(activeWs?.lessons_total || 3) + 1} />
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontFamily: fonts.mono, fontSize: 26, fontWeight: 600, color: C.ink, lineHeight: 1 }}>{activeWeek}</span>
+                  <span style={{ fontFamily: fonts.mono, fontSize: 9, letterSpacing: '.1em', color: C.inkSoft }}>НЕДЕЛЯ</span>
+                </div>
+              </div>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontFamily: fonts.mono, fontSize: 11, letterSpacing: '.06em', color: C.inkSoft, textTransform: 'uppercase' }}>
+                  Сегодня в программе
+                </div>
+                <div style={{ fontWeight: 700, fontSize: 17, margin: '6px 0 2px', lineHeight: 1.3 }}>
                   {nextLesson ? `Урок ${nextLesson.ord}: ${nextLesson.title}`
                     : !activeWs?.quiz_attempted ? 'Уроки пройдены — остался квиз недели'
                     : 'Неделя завершена'}
                 </div>
-                <div style={{ fontSize: 13, color: C.inkSoft, marginTop: 3 }}>
+                <div style={{ fontSize: 13, color: C.inkSoft, marginBottom: 12 }}>
                   {nextLesson ? '≈ 10 минут' : !activeWs?.quiz_attempted ? '5 вопросов · 4 минуты' : 'Дальше — встреча группы'}
                 </div>
+                {nextLesson
+                  ? <Btn onClick={() => openLesson(nextLesson)}>Начать урок</Btn>
+                  : !activeWs?.quiz_attempted && quiz?.questions?.length > 0
+                    ? <Btn onClick={() => { setShowQuiz(true); setTab('preds') }}>Пройти квиз</Btn>
+                    : null}
               </div>
-              {nextLesson
-                ? <Btn onClick={() => openLesson(nextLesson)}>Начать</Btn>
-                : !activeWs?.quiz_attempted && quiz?.questions?.length > 0
-                  ? <Btn onClick={() => { setShowQuiz(true); setTab('preds') }}>Квиз</Btn>
-                  : null}
+            </div>
+            <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px dashed ${C.grid}` }}>
+              <div style={{ fontFamily: fonts.mono, fontSize: 10.5, letterSpacing: '.08em', color: C.inkSoft, marginBottom: 7 }}>КАРТА ПРОГРАММЫ · 12 НЕДЕЛЬ</div>
+              <WeekMap weeks={weeks} current={activeWeek} onPick={(w) => { setViewWeek(w); setTab('lessons') }} />
             </div>
           </Card>
 
@@ -218,7 +287,7 @@ export default function Participant({ me }) {
 
       {/* УРОКИ: листалка недель */}
       {tab === 'lessons' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div className="fade-up" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {activeLesson ? (
             <>
               <button onClick={() => setActiveLesson(null)} style={{ background: 'none', border: 'none', color: C.teal, fontWeight: 600, fontSize: 14, cursor: 'pointer', textAlign: 'left', padding: 0, fontFamily: fonts.sans }}>← Все уроки</button>
@@ -308,8 +377,8 @@ export default function Participant({ me }) {
 
       {/* ДНЕВНИК */}
       {tab === 'journal' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Дневник решений</h2>
+        <div className="fade-up" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <H>Дневник решений</H>
           <p style={{ fontSize: 13, color: C.inkSoft, margin: 0, lineHeight: 1.5 }}>
             Личный. Никому не виден. На встречу попадает только то, что вы явно пометите «поделиться».
           </p>
@@ -362,8 +431,8 @@ export default function Participant({ me }) {
 
       {/* ПРОГНОЗЫ + ТУРНИР */}
       {tab === 'preds' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Прогнозы и калибровка</h2>
+        <div className="fade-up" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <H>Прогнозы и калибровка</H>
           {showQuiz && quiz && !quiz.attempted ? (
             <Quiz week={quiz.week} questions={quiz.questions} onDone={() => { setShowQuiz(false); reload() }} />
           ) : (
@@ -440,8 +509,8 @@ export default function Participant({ me }) {
 
       {/* ВСТРЕЧА */}
       {tab === 'meet' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Встреча недели {CARD1.week}</h2>
+        <div className="fade-up" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <H>Встреча недели {CARD1.week}</H>
           <Card style={{ borderLeft: `4px solid ${C.teal}` }}>
             <Tag>Сценарная карточка ведущего</Tag>
             <div style={{ fontWeight: 700, fontSize: 17, margin: '10px 0 4px' }}>{CARD1.title}</div>
@@ -483,13 +552,18 @@ export default function Participant({ me }) {
               className="navtab"
               onClick={() => { setTab(id); setActiveLesson(null); setShowQuiz(false); setViewWeek(null) }}
               style={{
-                flex: 1, padding: '13px 4px 15px', background: 'none', border: 'none', cursor: 'pointer',
-                fontFamily: fonts.sans, fontSize: 12.5,
+                flex: 1, padding: '9px 4px 11px', background: 'none', border: 'none', cursor: 'pointer',
+                fontFamily: fonts.sans, fontSize: 11.5,
                 fontWeight: tab === id ? 700 : 500,
                 color: tab === id ? C.teal : C.inkSoft,
                 borderTop: tab === id ? `2.5px solid ${C.teal}` : '2.5px solid transparent',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
               }}
             >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"
+                   stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d={NAV_ICONS[id]} />
+              </svg>
               {label}
             </button>
           ))}
