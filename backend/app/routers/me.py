@@ -1,5 +1,5 @@
 """Эндпоинты участника: всё только своё (user_id = current_user.id)."""
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -7,13 +7,15 @@ from sqlalchemy.orm import Session
 from ..auth import get_current_user
 from ..db import get_db
 from ..models import (
-    Group, GroupMember, JournalEntry, Lesson, LessonProgress, Prediction,
-    QuizAnswer, QuizAttempt, QuizQuestion, User,
+    Group, GroupMember, JournalEntry, Lesson, LessonProgress, MaterialCheck,
+    MoodCheckin, Prediction, QuizAnswer, QuizAttempt, QuizQuestion, User,
+    WeekMaterial,
 )
 from ..schemas import (
     CalibrationPoint, JournalEntryIn, JournalEntryOut, LessonListItem, LessonOut,
-    MeOut, PredictionIn, PredictionOut, QuizCurrentOut, QuizQuestionOut,
-    QuizQuestionResult, QuizResultOut, QuizSubmitIn, ResolveIn,
+    MeOut, MoodDay, MoodIn, MoodOut, PredictionIn, PredictionOut, QuizCurrentOut,
+    QuizQuestionOut, QuizQuestionResult, QuizResultOut, QuizSubmitIn, ResolveIn,
+    TournamentOut, WeekMaterialOut, WeekStatus,
 )
 
 router = APIRouter(prefix="/me", tags=["me"])
@@ -35,6 +37,92 @@ def current_week(group: Group | None, now: datetime) -> int:
     return max(1, min(12, weeks))
 
 
+# ---------- прогресс по неделям (гейтинг: уроки + квиз недели) ----------
+
+def _week_lessons(db: Session) -> dict[int, list[Lesson]]:
+    weeks: dict[int, list[Lesson]] = {}
+    for l in db.query(Lesson).order_by(Lesson.week, Lesson.ord):
+        weeks.setdefault(l.week, []).append(l)
+    return weeks
+
+
+def _completion_time(db: Session, user_id: int, lessons: list[Lesson],
+                     week: int) -> datetime | None:
+    """Момент завершения недели пользователем: все уроки пройдены И квиз сдан.
+    None — неделя не завершена."""
+    ids = [l.id for l in lessons]
+    done = db.query(LessonProgress).filter(
+        LessonProgress.user_id == user_id,
+        LessonProgress.lesson_id.in_(ids),
+        LessonProgress.completed_at.isnot(None),
+    ).all()
+    if len(done) < len(ids):
+        return None
+    attempt = db.query(QuizAttempt).filter(
+        QuizAttempt.user_id == user_id, QuizAttempt.week == week,
+    ).first()
+    if attempt is None:
+        return None
+    stamps = [p.completed_at for p in done] + [attempt.created_at]
+    return max(stamps)
+
+
+def week_statuses(db: Session, user: User) -> list[WeekStatus]:
+    weeks = _week_lessons(db)
+    gm = db.query(GroupMember).filter(GroupMember.user_id == user.id).first()
+    member_ids: list[int] = []
+    if gm:
+        member_ids = [
+            m.user_id for m in
+            db.query(GroupMember).filter(GroupMember.group_id == gm.group_id)
+        ]
+    result: list[WeekStatus] = []
+    prev_completed = True  # неделя 1 открыта всегда
+    for week in sorted(weeks):
+        lessons = weeks[week]
+        ids = [l.id for l in lessons]
+        my_done = db.query(LessonProgress).filter(
+            LessonProgress.user_id == user.id,
+            LessonProgress.lesson_id.in_(ids),
+            LessonProgress.completed_at.isnot(None),
+        ).count()
+        quiz_attempted = db.query(QuizAttempt).filter(
+            QuizAttempt.user_id == user.id, QuizAttempt.week == week,
+        ).first() is not None
+        completed = my_done == len(ids) and quiz_attempted
+        unlocked = prev_completed
+
+        others_times: list[tuple[int, datetime]] = []
+        for uid in member_ids:
+            t = _completion_time(db, uid, lessons, week)
+            if t is not None:
+                others_times.append((uid, t))
+        my_time = next((t for uid, t in others_times if uid == user.id), None)
+        i_was_first = (
+            my_time is not None
+            and all(my_time <= t for _, t in others_times)
+            and len(others_times) > 0
+        )
+        result.append(WeekStatus(
+            week=week, lessons_total=len(ids), lessons_done=my_done,
+            quiz_attempted=quiz_attempted, completed=completed, unlocked=unlocked,
+            group_completed=len(others_times), group_size=len(member_ids),
+            i_was_first=i_was_first,
+        ))
+        prev_completed = completed
+    return result
+
+
+def _unlocked_weeks(statuses: list[WeekStatus]) -> set[int]:
+    return {s.week for s in statuses if s.unlocked}
+
+
+def _active_week(statuses: list[WeekStatus]) -> int:
+    """Самая старшая открытая неделя — здесь живут квиз и «сегодняшний» урок."""
+    unlocked = [s.week for s in statuses if s.unlocked]
+    return max(unlocked) if unlocked else 1
+
+
 @router.get("", response_model=MeOut)
 def me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     group = _my_group(db, user)
@@ -46,10 +134,16 @@ def me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     )
 
 
+@router.get("/weeks", response_model=list[WeekStatus])
+def weeks(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return week_statuses(db, user)
+
+
 @router.get("/lessons", response_model=list[LessonListItem])
 def lessons(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    # Решение Андрея 2026-07-22: недельный гейтинг отключён — открыты все уроки.
-    # (Механика current_week остаётся для квизов и кураторского дашборда.)
+    # Гейтинг v2 (решение Андрея 22.07, вечер): неделя открывается после
+    # завершения предыдущей (все уроки + квиз). Неделя 1 открыта всегда.
+    unlocked = _unlocked_weeks(week_statuses(db, user))
     done = {
         p.lesson_id for p in
         db.query(LessonProgress).filter(
@@ -60,7 +154,7 @@ def lessons(user: User = Depends(get_current_user), db: Session = Depends(get_db
     return [
         LessonListItem(
             id=l.id, week=l.week, ord=l.ord, title=l.title,
-            completed=l.id in done, available=True,
+            completed=l.id in done, available=l.week in unlocked,
         )
         for l in db.query(Lesson).order_by(Lesson.week, Lesson.ord)
     ]
@@ -72,6 +166,8 @@ def lesson(lesson_id: int, user: User = Depends(get_current_user),
     l = db.get(Lesson, lesson_id)
     if l is None:
         raise HTTPException(404, "Урок не найден")
+    if l.week not in _unlocked_weeks(week_statuses(db, user)):
+        raise HTTPException(403, "Неделя ещё закрыта: завершите уроки и квиз текущей недели")
     return LessonOut(id=l.id, week=l.week, ord=l.ord, title=l.title, steps=l.steps)
 
 
@@ -172,7 +268,7 @@ def prediction_resolve(pred_id: int, body: ResolveIn,
 
 @router.get("/quiz/current", response_model=QuizCurrentOut)
 def quiz_current(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    week = current_week(_my_group(db, user), _utcnow())
+    week = _active_week(week_statuses(db, user))
     qs = db.query(QuizQuestion).filter(QuizQuestion.week == week).all()
     attempt = db.query(QuizAttempt).filter(
         QuizAttempt.user_id == user.id, QuizAttempt.week == week,
@@ -189,6 +285,8 @@ def quiz_current(user: User = Depends(get_current_user), db: Session = Depends(g
 @router.post("/quiz", response_model=QuizResultOut)
 def quiz_submit(body: QuizSubmitIn, user: User = Depends(get_current_user),
                 db: Session = Depends(get_db)):
+    if body.week not in _unlocked_weeks(week_statuses(db, user)):
+        raise HTTPException(403, "Квиз этой недели ещё закрыт")
     if db.query(QuizAttempt).filter(
         QuizAttempt.user_id == user.id, QuizAttempt.week == body.week,
     ).first():
@@ -210,6 +308,84 @@ def quiz_submit(body: QuizSubmitIn, user: User = Depends(get_current_user),
     attempt.hits = hits
     db.commit()
     return QuizResultOut(hits=hits, total=attempt.total, results=results)
+
+
+@router.get("/materials", response_model=list[WeekMaterialOut])
+def materials(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Оффлайн-задания всех недель + личная отметка выполнения."""
+    done_weeks = {
+        m.week for m in
+        db.query(MaterialCheck).filter(MaterialCheck.user_id == user.id)
+    }
+    return [
+        WeekMaterialOut(week=m.week, title=m.title, body=m.body,
+                        links=m.links, done=m.week in done_weeks)
+        for m in db.query(WeekMaterial).order_by(WeekMaterial.week)
+    ]
+
+
+@router.post("/materials/{week}/done")
+def material_toggle(week: int, user: User = Depends(get_current_user),
+                    db: Session = Depends(get_db)):
+    if db.query(WeekMaterial).filter(WeekMaterial.week == week).first() is None:
+        raise HTTPException(404, "У этой недели нет оффлайн-задания")
+    row = db.get(MaterialCheck, (user.id, week))
+    if row is None:
+        db.add(MaterialCheck(user_id=user.id, week=week))
+    else:
+        db.delete(row)
+    db.commit()
+    return {"done": row is None}
+
+
+@router.get("/tournament", response_model=TournamentOut)
+def tournament(week: int | None = None, user: User = Depends(get_current_user),
+               db: Session = Depends(get_db)):
+    """Турнир калибровки: мой результат явно, остальные — анонимные значения."""
+    statuses = week_statuses(db, user)
+    w = week or _active_week(statuses)
+    gm = db.query(GroupMember).filter(GroupMember.user_id == user.id).first()
+    member_ids = [
+        m.user_id for m in
+        db.query(GroupMember).filter(GroupMember.group_id == gm.group_id)
+    ] if gm else [user.id]
+    attempts = db.query(QuizAttempt).filter(
+        QuizAttempt.week == w, QuizAttempt.user_id.in_(member_ids),
+    ).all()
+    my = next((a for a in attempts if a.user_id == user.id), None)
+    others = sorted(a.hits for a in attempts if a.user_id != user.id)  # сортировка = анонимизация порядка
+    total = attempts[0].total if attempts else 5
+    return TournamentOut(week=w, total=total,
+                         my_hits=my.hits if my else None, others_hits=others)
+
+
+@router.get("/mood", response_model=MoodOut)
+def mood_get(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    today = _utcnow().date()
+    rows = db.query(MoodCheckin).filter(
+        MoodCheckin.user_id == user.id,
+        MoodCheckin.day >= today - timedelta(days=6),
+    ).order_by(MoodCheckin.day).all()
+    today_row = next((r for r in rows if r.day == today), None)
+    return MoodOut(
+        today=today_row.score if today_row else None,
+        history=[MoodDay(day=r.day.isoformat(), score=r.score) for r in rows],
+    )
+
+
+@router.post("/mood", response_model=MoodOut)
+def mood_set(body: MoodIn, user: User = Depends(get_current_user),
+             db: Session = Depends(get_db)):
+    today = _utcnow().date()
+    row = db.query(MoodCheckin).filter(
+        MoodCheckin.user_id == user.id, MoodCheckin.day == today,
+    ).first()
+    if row is None:
+        db.add(MoodCheckin(user_id=user.id, day=today, score=body.score))
+    else:
+        row.score = body.score
+    db.commit()
+    return mood_get(user, db)
 
 
 @router.get("/calibration", response_model=list[CalibrationPoint])

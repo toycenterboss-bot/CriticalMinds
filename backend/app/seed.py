@@ -10,10 +10,11 @@ import sys
 
 from .auth import hash_password
 from .config import settings
-from .content import ALL_LESSONS, ALL_QUIZ
+from .content import ALL_LESSONS, ALL_MATERIALS, ALL_QUIZ
 from .db import Base, SessionLocal, engine
 from .models import (
     Lesson, LessonProgress, QuizAnswer, QuizAttempt, QuizQuestion, Role, User,
+    WeekMaterial,
 )
 
 
@@ -22,7 +23,10 @@ def _insert_content(db) -> None:
         db.add(Lesson(**l))
     for q in ALL_QUIZ:
         db.add(QuizQuestion(**q))
-    print(f"Загружено: {len(ALL_LESSONS)} уроков, {len(ALL_QUIZ)} вопросов квиза")
+    for m in ALL_MATERIALS:
+        db.add(WeekMaterial(**m))
+    print(f"Загружено: {len(ALL_LESSONS)} уроков, {len(ALL_QUIZ)} вопросов квиза, "
+          f"{len(ALL_MATERIALS)} оффлайн-заданий")
 
 
 def run(refresh: bool = False) -> None:
@@ -47,6 +51,7 @@ def run(refresh: bool = False) -> None:
             db.query(LessonProgress).delete()
             db.query(Lesson).delete()
             db.query(QuizQuestion).delete()
+            db.query(WeekMaterial).delete()
             print("Старый контент и прогресс по нему удалены")
             _insert_content(db)
         elif db.query(Lesson).count() == 0:

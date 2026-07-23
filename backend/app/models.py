@@ -4,11 +4,11 @@
 не попадают в кураторские выборки (см. routers/curator.py и tests/test_privacy.py).
 """
 import enum
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
-    JSON, Boolean, DateTime, Enum, Float, ForeignKey, Integer, String, Text,
-    UniqueConstraint, func,
+    JSON, Boolean, Date, DateTime, Enum, Float, ForeignKey, Integer, String,
+    Text, UniqueConstraint, func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -138,6 +138,40 @@ class QuizAttempt(Base):
     hits: Mapped[int] = mapped_column(Integer)
     total: Mapped[int] = mapped_column(Integer)
     __table_args__ = (UniqueConstraint("user_id", "week"),)
+
+
+class WeekMaterial(Base):
+    """Оффлайн-задание недели: статьи + что принести. Контент = данные."""
+    __tablename__ = "week_materials"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    week: Mapped[int] = mapped_column(Integer, unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    body: Mapped[str] = mapped_column(Text)
+    links: Mapped[list] = mapped_column(JSON)  # [{title, url, note}]
+
+
+class MaterialCheck(Base):
+    """Отметка «оффлайн-задание недели выполнено». На гейтинг не влияет."""
+    __tablename__ = "material_checks"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    week: Mapped[int] = mapped_column(Integer, primary_key=True)
+    done_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class MoodCheckin(Base):
+    """Барометр настроения: 1 (гроза) … 5 (солнце), одна отметка в день.
+
+    ПРИВАТНОСТЬ: индивидуальные значения видит только сам участник.
+    Куратору отдаётся ТОЛЬКО агрегат группы и только при ≥3 ответивших
+    (см. routers/curator.py::_mood_aggregate).
+    """
+    __tablename__ = "mood_checkins"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    day: Mapped[date] = mapped_column(Date, index=True)
+    score: Mapped[int] = mapped_column(Integer)  # 1..5
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    __table_args__ = (UniqueConstraint("user_id", "day"),)
 
 
 class QuizAnswer(Base):

@@ -190,6 +190,55 @@ class QuizResultOut(BaseModel):
     results: list[QuizQuestionResult]
 
 
+class WeekStatus(BaseModel):
+    """Статус недели для листалки + мотивационные сигналы."""
+    week: int
+    lessons_total: int
+    lessons_done: int
+    quiz_attempted: bool
+    completed: bool          # уроки + квиз
+    unlocked: bool           # неделя 1 или предыдущая завершена
+    group_completed: int     # сколько участников группы завершили эту неделю
+    group_size: int
+    i_was_first: bool        # я завершил эту неделю первым в группе
+
+
+class MaterialLink(BaseModel):
+    title: str
+    url: str
+    note: str | None = None
+
+
+class WeekMaterialOut(BaseModel):
+    week: int
+    title: str
+    body: str
+    links: list[MaterialLink]
+    done: bool
+
+
+class MoodIn(BaseModel):
+    score: int = Field(ge=1, le=5)  # 1 гроза … 5 солнце
+
+
+class MoodDay(BaseModel):
+    day: str
+    score: int
+
+
+class MoodOut(BaseModel):
+    today: int | None
+    history: list[MoodDay]   # последние 7 дней, только свои
+
+
+class TournamentOut(BaseModel):
+    """Турнир калибровки недели: я — явно, остальные — анонимные значения."""
+    week: int
+    total: int
+    my_hits: int | None
+    others_hits: list[int]   # без имён и идентификаторов, порядок перемешан
+
+
 class CalibrationPoint(BaseModel):
     declared: float   # заявленная уверенность, %
     actual: float     # фактическая доля попаданий, %
@@ -232,6 +281,7 @@ class MemberMeta(BaseModel):
     shared_count: int
     predictions_count: int
     predictions_resolved: int
+    materials_done: int
     quiz_hits: int | None
     quiz_total: int | None
     last_activity_at: datetime | None
@@ -244,8 +294,19 @@ class Flag(BaseModel):
     message: str      # рекомендация: личный разговор, не общий чат
 
 
+class MoodAggregate(BaseModel):
+    """Барометр группы для куратора: ТОЛЬКО агрегат, без индивидуальных значений.
+    При <3 ответивших числа скрываются (k-анонимность)."""
+    today_count: int
+    today_avg: float | None
+    week_avg: float | None
+    prev_week_avg: float | None
+    summary: str
+
+
 class GroupDashboard(BaseModel):
     group: GroupOut
     week: int
     members: list[MemberMeta]
     flags: list[Flag]
+    mood: MoodAggregate

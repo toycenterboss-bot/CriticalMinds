@@ -16,12 +16,12 @@ from ..db import get_db
 from ..flags import team_flags
 from ..models import (
     Group, GroupMember, Invite, JournalEntry, Lesson, LessonProgress,
-    Prediction, QuizAttempt, Role, User,
+    MaterialCheck, MoodCheckin, Prediction, QuizAttempt, Role, User,
 )
 from ..routers.me import current_week
 from ..schemas import (
     GroupCreateIn, GroupDashboard, GroupOut, InviteLinkOut,
-    MemberLessonMeta, MemberMeta,
+    MemberLessonMeta, MemberMeta, MoodAggregate,
 )
 
 router = APIRouter(prefix="/curator", tags=["curator"],
@@ -70,6 +70,8 @@ def _member_meta(db: Session, member: User) -> MemberMeta:
         Prediction.user_id == member.id).scalar()
     preds_resolved = db.query(func.count(Prediction.id)).filter(
         Prediction.user_id == member.id, Prediction.resolved_at.isnot(None)).scalar()
+    materials_done = db.query(func.count(MaterialCheck.week)).filter(
+        MaterialCheck.user_id == member.id).scalar()
     last_quiz = (db.query(QuizAttempt).filter(QuizAttempt.user_id == member.id)
                  .order_by(QuizAttempt.week.desc()).first())
     last_activity = max(filter(None, [
@@ -89,6 +91,7 @@ def _member_meta(db: Session, member: User) -> MemberMeta:
         ) for p, l in progress],
         journal_count=journal_count, shared_count=shared_count,
         predictions_count=preds_count, predictions_resolved=preds_resolved,
+        materials_done=materials_done,
         quiz_hits=last_quiz.hits if last_quiz else None,
         quiz_total=last_quiz.total if last_quiz else None,
         last_activity_at=last_activity,
@@ -104,6 +107,63 @@ def group_members(group_id: int, user: User = Depends(get_current_user),
     return [_member_meta(db, m) for m in members]
 
 
+MIN_MOOD_RESPONSES = 3  # k-анонимность: агрегат показывается только при ≥3 ответивших
+
+
+def _avg(scores: list[int]) -> float | None:
+    return round(sum(scores) / len(scores), 2) if scores else None
+
+
+def _mood_aggregate(db: Session, member_ids: list[int]) -> MoodAggregate:
+    """ТОЛЬКО агрегаты. Индивидуальные значения не покидают эту функцию."""
+    today = _utcnow().date()
+
+    def scores(since_days: int, until_days: int = 0) -> list[int]:
+        rows = db.query(MoodCheckin.score).filter(
+            MoodCheckin.user_id.in_(member_ids),
+            MoodCheckin.day > today - timedelta(days=since_days),
+            MoodCheckin.day <= today - timedelta(days=until_days),
+        ).all()
+        return [r[0] for r in rows]
+
+    today_scores = scores(1)
+    week_scores = scores(7)
+    prev_week_scores = scores(14, 7)
+
+    if len(today_scores) < MIN_MOOD_RESPONSES:
+        return MoodAggregate(
+            today_count=len(today_scores), today_avg=None, week_avg=None,
+            prev_week_avg=None,
+            summary=f"Сегодня ответили {len(today_scores)} из {len(member_ids)} — "
+                    f"агрегат показывается от {MIN_MOOD_RESPONSES} ответов "
+                    "(чтобы нельзя было вычислить чьё-то настроение).",
+        )
+
+    t_avg = _avg(today_scores)
+    w_avg = _avg(week_scores)
+    p_avg = _avg(prev_week_scores)
+
+    if t_avg >= 4.2:
+        text = "Группа в хорошем настроении."
+    elif t_avg >= 3.4:
+        text = "Рабочее настроение, тревожных сигналов нет."
+    elif t_avg >= 2.6:
+        text = "Настроение среднее — стоит приглядеться на встрече."
+    else:
+        text = ("Группа в напряжении — возможно, стоит облегчить неделю "
+                "и поговорить с людьми лично.")
+    if w_avg is not None and p_avg is not None:
+        delta = w_avg - p_avg
+        if delta <= -0.5:
+            text += " Динамика за неделю ухудшается."
+        elif delta >= 0.5:
+            text += " Динамика за неделю улучшается."
+    return MoodAggregate(
+        today_count=len(today_scores), today_avg=t_avg, week_avg=w_avg,
+        prev_week_avg=p_avg, summary=text,
+    )
+
+
 @router.get("/groups/{group_id}/dashboard", response_model=GroupDashboard)
 def group_dashboard(group_id: int, user: User = Depends(get_current_user),
                     db: Session = Depends(get_db)):
@@ -115,6 +175,7 @@ def group_dashboard(group_id: int, user: User = Depends(get_current_user),
     return GroupDashboard(
         group=_group_out(db, g), week=week, members=metas,
         flags=team_flags(metas, week, _utcnow()),
+        mood=_mood_aggregate(db, [m.id for m in members]),
     )
 
 

@@ -1,5 +1,5 @@
-// Кабинет участника: Главная, Уроки, Дневник, Прогнозы, Встреча.
-// Перенос интерфейса прототипа, данные — через API.
+// Кабинет участника: Главная (калибровка, барометр, вехи), Уроки (листалка недель
+// с гейтингом «уроки+квиз»), Дневник, Прогнозы (+турнир), Встреча.
 import React, { useCallback, useEffect, useState } from 'react'
 import { api } from '../api.js'
 import { C, fonts, inputStyle } from '../tokens.js'
@@ -18,14 +18,24 @@ export const validateEntry = (e) => {
   return null
 }
 
+const MOODS = [
+  [1, '⛈', 'гроза'], [2, '🌧', 'дождь'], [3, '⛅', 'переменно'],
+  [4, '🌤', 'ясно'], [5, '☀️', 'солнце'],
+]
+
 export default function Participant({ me }) {
   const [tab, setTab] = useState('home')
   const [lessons, setLessons] = useState([])
+  const [weeks, setWeeks] = useState([])
+  const [viewWeek, setViewWeek] = useState(null)
   const [activeLesson, setActiveLesson] = useState(null)
   const [journal, setJournal] = useState([])
   const [preds, setPreds] = useState([])
   const [calibration, setCalibration] = useState([])
   const [quiz, setQuiz] = useState(null)
+  const [tournament, setTournament] = useState(null)
+  const [mood, setMood] = useState(null)
+  const [materials, setMaterials] = useState([])
   const [showQuiz, setShowQuiz] = useState(false)
   const [newPred, setNewPred] = useState({ text: '', conf: 70 })
   const [newEntry, setNewEntry] = useState({ decision: '', args: '', expect: '', conf: 70, shared: false })
@@ -34,12 +44,22 @@ export default function Participant({ me }) {
 
   const reload = useCallback(() => {
     api('/me/lessons').then(setLessons).catch(() => {})
+    api('/me/weeks').then(setWeeks).catch(() => {})
     api('/me/journal').then(setJournal).catch(() => {})
     api('/me/predictions').then(setPreds).catch(() => {})
     api('/me/calibration').then(setCalibration).catch(() => {})
     api('/me/quiz/current').then(setQuiz).catch(() => {})
+    api('/me/tournament').then(setTournament).catch(() => {})
+    api('/me/mood').then(setMood).catch(() => {})
+    api('/me/materials').then(setMaterials).catch(() => {})
   }, [])
   useEffect(reload, [reload])
+
+  const activeWeek = weeks.filter((w) => w.unlocked).map((w) => w.week).pop() || 1
+  const shownWeek = viewWeek || activeWeek
+  const ws = weeks.find((w) => w.week === shownWeek)
+  const lastCompleted = weeks.filter((w) => w.completed).map((w) => w.week).pop() || null
+  const lastCompletedWs = weeks.find((w) => w.week === lastCompleted)
 
   const openLesson = async (l) => {
     const full = await api(`/me/lessons/${l.id}`)
@@ -86,9 +106,14 @@ export default function Participant({ me }) {
     reload()
   }
 
-  const doneCount = lessons.filter((l) => l.completed).length
-  const weekLessons = lessons.filter((l) => l.week === me.current_week)
-  const nextLesson = weekLessons.find((l) => !l.completed && l.available)
+  const setMoodScore = async (score) => {
+    setMood(await api('/me/mood', { method: 'POST', body: JSON.stringify({ score }) }))
+  }
+
+  const weekLessons = lessons.filter((l) => l.week === shownWeek)
+  const activeWeekLessons = lessons.filter((l) => l.week === activeWeek)
+  const nextLesson = activeWeekLessons.find((l) => !l.completed)
+  const activeWs = weeks.find((w) => w.week === activeWeek)
 
   const tabs = [
     ['home', 'Главная'], ['lessons', 'Уроки'], ['journal', 'Дневник'],
@@ -100,6 +125,51 @@ export default function Participant({ me }) {
       {/* ГЛАВНАЯ */}
       {tab === 'home' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+          {/* Вехи и пульс группы */}
+          {lastCompletedWs && lastCompletedWs.i_was_first && lastCompletedWs.group_size > 1 && (
+            <Card style={{ borderLeft: `4px solid ${C.marker}`, background: C.markerSoft }}>
+              <b>🏁 Поздравляем — вы первым в группе завершили неделю {lastCompletedWs.week}!</b>
+            </Card>
+          )}
+          {lastCompletedWs && !(lastCompletedWs.i_was_first && lastCompletedWs.group_size > 1) && (
+            <Card style={{ borderLeft: `4px solid ${C.teal}` }}>
+              <b>Неделя {lastCompletedWs.week} завершена ✓</b>
+              {activeWeek > lastCompletedWs.week && ' Открыта неделя ' + activeWeek + '.'}
+            </Card>
+          )}
+          {activeWs && activeWs.group_size > 1 && activeWs.group_completed > 0 && !activeWs.completed && (
+            <Card style={{ padding: 12 }}>
+              <span style={{ fontFamily: fonts.mono, fontSize: 13, color: C.inkSoft }}>
+                {activeWs.group_completed} из {activeWs.group_size} участников уже завершили неделю {activeWeek}
+              </span>
+            </Card>
+          )}
+
+          {/* Барометр настроения */}
+          <Card>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>Как вы сегодня?</div>
+                <div style={{ fontSize: 12.5, color: C.inkSoft }}>
+                  Куратор видит только среднее по группе, не ваш ответ
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {MOODS.map(([score, icon, label]) => (
+                  <button key={score} title={label} onClick={() => setMoodScore(score)}
+                          style={{
+                            fontSize: 22, padding: '6px 8px', cursor: 'pointer', borderRadius: 10,
+                            border: mood?.today === score ? `2px solid ${C.teal}` : `1.5px solid ${C.grid}`,
+                            background: mood?.today === score ? C.tealSoft : C.white,
+                          }}>
+                    {icon}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </Card>
+
           <Card style={{ background: C.ink, color: C.white, border: 'none' }}>
             <div style={{ fontFamily: fonts.mono, fontSize: 12, opacity: 0.65, letterSpacing: '.06em' }}>МОЯ КАЛИБРОВКА</div>
             <p style={{ fontSize: 13.5, opacity: 0.85, lineHeight: 1.5, margin: '6px 0 12px' }}>
@@ -113,21 +183,27 @@ export default function Participant({ me }) {
           <Card>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <Tag>Сегодня</Tag>
+                <Tag>Сегодня · неделя {activeWeek}</Tag>
                 <div style={{ fontWeight: 700, fontSize: 16, marginTop: 8 }}>
-                  {nextLesson ? `Урок ${nextLesson.ord}: ${nextLesson.title}` : 'Уроки недели пройдены'}
+                  {nextLesson ? `Урок ${nextLesson.ord}: ${nextLesson.title}`
+                    : !activeWs?.quiz_attempted ? 'Уроки пройдены — остался квиз недели'
+                    : 'Неделя завершена'}
                 </div>
                 <div style={{ fontSize: 13, color: C.inkSoft, marginTop: 3 }}>
-                  {nextLesson ? '≈ 10–15 минут' : 'Дальше — встреча группы'}
+                  {nextLesson ? '≈ 10 минут' : !activeWs?.quiz_attempted ? '5 вопросов · 4 минуты' : 'Дальше — встреча группы'}
                 </div>
               </div>
-              {nextLesson && <Btn onClick={() => openLesson(nextLesson)}>Начать</Btn>}
+              {nextLesson
+                ? <Btn onClick={() => openLesson(nextLesson)}>Начать</Btn>
+                : !activeWs?.quiz_attempted && quiz?.questions?.length > 0
+                  ? <Btn onClick={() => { setShowQuiz(true); setTab('preds') }}>Квиз</Btn>
+                  : null}
             </div>
           </Card>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
             {[
-              [`${doneCount}/${weekLessons.length || 3}`, 'урока недели'],
+              [`${activeWs ? activeWs.lessons_done : 0}/${activeWs ? activeWs.lessons_total : 3}`, `уроков недели ${activeWeek}`],
               [journal.length, 'записей в дневнике'],
               [preds.length, 'прогнозов'],
             ].map(([v, l], i) => (
@@ -137,24 +213,10 @@ export default function Participant({ me }) {
               </Card>
             ))}
           </div>
-
-          <Card>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>Калибровочный квиз недели</div>
-                <div style={{ fontSize: 13, color: C.inkSoft }}>
-                  {quiz?.attempted ? `Сдан: ${quiz.hits} из ${quiz.total}` : '5 вопросов · интервалы 90% · 4 минуты'}
-                </div>
-              </div>
-              {!quiz?.attempted && quiz?.questions?.length > 0 && (
-                <Btn variant="ghost" small onClick={() => { setShowQuiz(true); setTab('preds') }}>Пройти</Btn>
-              )}
-            </div>
-          </Card>
         </div>
       )}
 
-      {/* УРОКИ */}
+      {/* УРОКИ: листалка недель */}
       {tab === 'lessons' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {activeLesson ? (
@@ -165,23 +227,80 @@ export default function Participant({ me }) {
             </>
           ) : (
             <>
-              <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Модуль 1 · Наблюдение за мышлением</h2>
-              {lessons.map((l) => (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <button disabled={shownWeek <= 1} onClick={() => setViewWeek(shownWeek - 1)}
+                        style={{ border: `1.5px solid ${C.grid}`, background: C.white, borderRadius: 10, padding: '8px 14px', cursor: shownWeek > 1 ? 'pointer' : 'default', fontFamily: fonts.mono, opacity: shownWeek > 1 ? 1 : 0.4 }}>←</button>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontFamily: fonts.mono, fontWeight: 600, fontSize: 16 }}>
+                    Неделя {shownWeek} / 12 {ws && !ws.unlocked && '🔒'}
+                  </div>
+                  <div style={{ fontSize: 12, color: C.inkSoft }}>
+                    {ws?.completed ? 'завершена ✓'
+                      : ws?.unlocked ? `уроки ${ws.lessons_done}/${ws.lessons_total}${ws.quiz_attempted ? ' · квиз ✓' : ' · квиз —'}`
+                      : 'откроется после завершения предыдущей недели (уроки + квиз)'}
+                  </div>
+                </div>
+                <button disabled={shownWeek >= 12} onClick={() => setViewWeek(shownWeek + 1)}
+                        style={{ border: `1.5px solid ${C.grid}`, background: C.white, borderRadius: 10, padding: '8px 14px', cursor: shownWeek < 12 ? 'pointer' : 'default', fontFamily: fonts.mono, opacity: shownWeek < 12 ? 1 : 0.4 }}>→</button>
+              </div>
+
+              {weekLessons.map((l) => (
                 <Card key={l.id} style={{ opacity: l.available ? 1 : 0.55 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <div style={{ fontFamily: fonts.mono, fontSize: 11, color: C.inkSoft }}>НЕДЕЛЯ {l.week} · УРОК {l.ord}</div>
+                      <div style={{ fontFamily: fonts.mono, fontSize: 11, color: C.inkSoft }}>УРОК {l.week}.{l.ord}</div>
                       <div style={{ fontWeight: 700, fontSize: 15.5, marginTop: 3 }}>{l.title}</div>
                     </div>
                     {l.completed ? <Tag>Пройден ✓</Tag>
-                      : !l.available ? <Tag color={C.grid} text={C.inkSoft}>Позже</Tag>
+                      : !l.available ? <Tag color={C.grid} text={C.inkSoft}>🔒</Tag>
                       : <Btn small onClick={() => openLesson(l)}>Открыть</Btn>}
                   </div>
                 </Card>
               ))}
-              <p style={{ fontSize: 13, color: C.inkSoft, lineHeight: 1.5 }}>
-                Уроки открываются по неделям программы. Полная карта: 36 уроков, 4 модуля, 12 недель.
-              </p>
+
+              {(() => {
+                const mat = materials.find((m) => m.week === shownWeek)
+                if (!mat || !ws?.unlocked) return null
+                return (
+                  <Card style={{ borderLeft: `4px solid ${C.inkSoft}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                      <div>
+                        <Tag color={C.paper} text={C.inkSoft}>Оффлайн-задание</Tag>
+                        <div style={{ fontWeight: 700, fontSize: 15, marginTop: 8 }}>{mat.title}</div>
+                      </div>
+                      {mat.done && <Tag>Выполнено ✓</Tag>}
+                    </div>
+                    <p style={{ fontSize: 13.5, lineHeight: 1.55, color: C.inkSoft, margin: '8px 0 10px' }}>{mat.body}</p>
+                    {mat.links.map((lnk, i) => (
+                      <div key={i} style={{ padding: '7px 0', borderTop: i > 0 ? `1px dashed ${C.grid}` : 'none' }}>
+                        <a href={lnk.url} target="_blank" rel="noreferrer"
+                           style={{ color: C.teal, fontWeight: 600, fontSize: 14 }}>
+                          {lnk.title} ↗
+                        </a>
+                        {lnk.note && <div style={{ fontSize: 12.5, color: C.inkSoft }}>{lnk.note}</div>}
+                      </div>
+                    ))}
+                    <div style={{ marginTop: 10 }}>
+                      <Btn small variant={mat.done ? 'ghost' : 'primary'}
+                           onClick={async () => { await api(`/me/materials/${mat.week}/done`, { method: 'POST' }); reload() }}>
+                        {mat.done ? 'снять отметку' : 'отметить выполненным'}
+                      </Btn>
+                    </div>
+                  </Card>
+                )
+              })()}
+
+              {ws?.unlocked && !ws?.quiz_attempted && ws?.lessons_done === ws?.lessons_total && (
+                <Card style={{ borderLeft: `4px solid ${C.marker}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <b>Калибровочный квиз недели {shownWeek}</b>
+                      <div style={{ fontSize: 13, color: C.inkSoft }}>Завершает неделю и открывает следующую</div>
+                    </div>
+                    <Btn small onClick={() => { setShowQuiz(true); setTab('preds') }}>Пройти</Btn>
+                  </div>
+                </Card>
+              )}
             </>
           )}
         </div>
@@ -196,7 +315,7 @@ export default function Participant({ me }) {
           </p>
           <Card>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <input value={newEntry.decision} onChange={(e) => setNewEntry({ ...newEntry, decision: e.target.value })} placeholder="Какое решение принимаю" style={inputStyle} />
+              <input value={newEntry.decision} onChange={(e) => setNewEntry({ ...newEntry, decision: e.target.value })} placeholder="Какое решение принимаю (мин. 8 символов)" style={inputStyle} />
               <textarea value={newEntry.args} onChange={(e) => setNewEntry({ ...newEntry, args: e.target.value })} placeholder="Ключевые аргументы (2–3)" rows={2} style={inputStyle} />
               <input value={newEntry.expect} onChange={(e) => setNewEntry({ ...newEntry, expect: e.target.value })} placeholder="Чего ожидаю" style={inputStyle} />
               <label style={{ fontFamily: fonts.mono, fontSize: 13, color: C.inkSoft }}>
@@ -241,7 +360,7 @@ export default function Participant({ me }) {
         </div>
       )}
 
-      {/* ПРОГНОЗЫ */}
+      {/* ПРОГНОЗЫ + ТУРНИР */}
       {tab === 'preds' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Прогнозы и калибровка</h2>
@@ -249,6 +368,40 @@ export default function Participant({ me }) {
             <Quiz week={quiz.week} questions={quiz.questions} onDone={() => { setShowQuiz(false); reload() }} />
           ) : (
             <>
+              {/* Турнир недели: я — явно, остальные — точки без имён */}
+              {tournament && (tournament.my_hits !== null || tournament.others_hits.length > 0) && (
+                <Card>
+                  <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>
+                    Турнир калибровки · неделя {tournament.week}
+                  </div>
+                  <div style={{ fontSize: 12.5, color: C.inkSoft, marginBottom: 10 }}>
+                    Попадания при заявленных 90%. Вы — явно, остальные — без имён.
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
+                    {Array.from({ length: tournament.total + 1 }, (_, h) => {
+                      const others = tournament.others_hits.filter((x) => x === h).length
+                      const isMe = tournament.my_hits === h
+                      return (
+                        <div key={h} style={{ flex: 1, textAlign: 'center' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column-reverse', alignItems: 'center', gap: 3, minHeight: 64 }}>
+                            {Array.from({ length: others }, (_, i) => (
+                              <span key={i} style={{ width: 10, height: 10, borderRadius: 10, background: C.teal, opacity: 0.55 }} />
+                            ))}
+                            {isMe && (
+                              <span style={{ fontFamily: fonts.mono, fontSize: 10, fontWeight: 600, background: C.marker, border: `1.5px solid ${C.ink}`, borderRadius: 8, padding: '2px 6px' }}>вы</span>
+                            )}
+                          </div>
+                          <div style={{ fontFamily: fonts.mono, fontSize: 11, color: C.inkSoft, borderTop: `1px solid ${C.grid}`, paddingTop: 4, marginTop: 4 }}>{h}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  {tournament.my_hits === null && (
+                    <p style={{ fontSize: 12.5, color: C.inkSoft, marginTop: 8 }}>Вы ещё не сдали квиз этой недели — на поле только точки группы.</p>
+                  )}
+                </Card>
+              )}
+
               <Card>
                 <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>Новый прогноз</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -327,7 +480,7 @@ export default function Participant({ me }) {
           {tabs.map(([id, label]) => (
             <button
               key={id}
-              onClick={() => { setTab(id); setActiveLesson(null); setShowQuiz(false) }}
+              onClick={() => { setTab(id); setActiveLesson(null); setShowQuiz(false); setViewWeek(null) }}
               style={{
                 flex: 1, padding: '13px 4px 15px', background: 'none', border: 'none', cursor: 'pointer',
                 fontFamily: fonts.sans, fontSize: 12.5,

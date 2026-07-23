@@ -42,6 +42,7 @@ function MemberCard({ m }) {
         <span>дневник: <b style={{ color: m.journal_count ? C.teal : C.red }}>{m.journal_count}</b> зап.</span>
         <span>к встрече: <b style={{ color: C.ink }}>{m.shared_count}</b></span>
         <span>прогнозы: <b style={{ color: m.predictions_count ? C.teal : C.red }}>{m.predictions_count}</b></span>
+        <span>оффлайн: <b style={{ color: C.ink }}>{m.materials_done}</b></span>
         <span>квиз: <b style={{ color: m.quiz_total == null ? C.red : C.teal }}>{m.quiz_total == null ? '—' : `${m.quiz_hits}/${m.quiz_total}`}</b></span>
       </div>
     </Card>
@@ -99,6 +100,25 @@ export default function Curator() {
               </Card>
             ))}
           </div>
+
+          {/* Барометр группы: только агрегат, k-анонимность на бэкенде */}
+          {dash.mood && (
+            <Card style={{ borderLeft: `4px solid ${C.marker}` }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 8 }}>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>Барометр группы</div>
+                {dash.mood.today_avg != null && (
+                  <span style={{ fontFamily: fonts.mono, fontSize: 13, color: C.inkSoft }}>
+                    сегодня: <b style={{ color: C.teal, fontSize: 16 }}>
+                      {['⛈', '🌧', '⛅', '🌤', '☀️'][Math.round(dash.mood.today_avg) - 1]} {dash.mood.today_avg}
+                    </b> / 5 ({dash.mood.today_count} отв.)
+                    {dash.mood.week_avg != null && ` · неделя: ${dash.mood.week_avg}`}
+                    {dash.mood.prev_week_avg != null && ` · прошлая: ${dash.mood.prev_week_avg}`}
+                  </span>
+                )}
+              </div>
+              <p style={{ fontSize: 13.5, lineHeight: 1.5, margin: '8px 0 0' }}>{dash.mood.summary}</p>
+            </Card>
+          )}
 
           <Card>
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>Зона внимания</div>

@@ -131,25 +131,31 @@ export default function LessonPlayer({ lesson, onDone, onJournal }) {
                 //  · верный вариант: зелёный, «✓ верно» (пропущенный верный — красный «✗ пропущен»)
                 //  · выбранный неверный: красный, «✗ лишний»
                 //  · невыбранный неверный: нейтральный, без пометки
+                // Цвет и подпись ВСЕГДА про ответ пользователя, не про «правильность
+                // варианта вообще»: зелёное = вы здесь были правы, красное = ошиблись.
                 let border = `1.5px solid ${sel ? C.ink : C.grid}`
                 let bg = sel ? C.paper : C.white
                 let mark = ''
                 let markColor = C.inkSoft
                 if (checkDone) {
                   if (s.labels) {
+                    const chosen = sel ? s.labels[0] : s.labels[1]
+                    const correct = o.ok ? s.labels[0] : s.labels[1]
                     border = `2px solid ${right ? C.teal : C.red}`
                     bg = right ? C.tealSoft : C.redSoft
-                    mark = right ? ' ✓ верно' : ' ✗ мимо'
+                    mark = right
+                      ? `ваш ответ: ${chosen} ✓`
+                      : `ваш ответ: ${chosen} ✗ · верно: ${correct}`
                     markColor = right ? C.teal : C.red
                   } else if (o.ok && sel) {
                     border = `2px solid ${C.teal}`; bg = C.tealSoft
-                    mark = '✓ верно'; markColor = C.teal
+                    mark = '✓ ваш выбор — верно'; markColor = C.teal
                   } else if (o.ok && !sel) {
                     border = `2px solid ${C.red}`; bg = C.redSoft
-                    mark = '✗ пропущен верный'; markColor = C.red
+                    mark = '✗ вы не выбрали верный'; markColor = C.red
                   } else if (!o.ok && sel) {
                     border = `2px solid ${C.red}`; bg = C.redSoft
-                    mark = '✗ лишний'; markColor = C.red
+                    mark = '✗ ваш выбор — неверно'; markColor = C.red
                   } else {
                     border = `1.5px solid ${C.grid}`; bg = C.white
                   }
@@ -169,9 +175,8 @@ export default function LessonPlayer({ lesson, onDone, onJournal }) {
                         </span>
                       )}
                       {o.t}
-                      <span style={{ float: 'right', fontFamily: fonts.mono, fontSize: 11, fontWeight: 600, color: markColor }}>
-                        {s.labels ? (sel ? s.labels[0] : s.labels[1]) : ''}
-                        {checkDone ? ` ${mark}` : ''}
+                      <span style={{ float: 'right', fontFamily: fonts.mono, fontSize: 11, fontWeight: 600, color: markColor, marginLeft: 8 }}>
+                        {checkDone ? mark : s.labels ? (sel ? s.labels[0] : s.labels[1]) : ''}
                       </span>
                     </button>
                     {checkDone && (
