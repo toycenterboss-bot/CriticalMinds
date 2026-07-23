@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { api } from '../api.js'
 import { C, fonts } from '../tokens.js'
+import { Btn, Card, Tag } from '../components/ui.jsx'
 
 export default function Admin() {
   const [groups, setGroups] = useState([])
@@ -14,34 +15,34 @@ export default function Admin() {
   }
 
   return (
-    <div>
-      <h1 style={{ fontFamily: fonts.mono, fontSize: 20, marginBottom: 16 }}>
+    <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <h1 style={{ fontFamily: fonts.mono, fontSize: 20, fontWeight: 600, margin: 0 }}>
         Администрирование
       </h1>
-      <button onClick={inviteCurator} style={{
-        padding: '8px 16px', background: C.teal, color: C.card, border: 'none',
-        fontFamily: fonts.mono, cursor: 'pointer', marginBottom: 16,
-      }}>ссылка-приглашение куратора</button>
+      <div>
+        <Btn onClick={inviteCurator}>ссылка-приглашение куратора</Btn>
+      </div>
       {invite && (
-        <p style={{ fontFamily: fonts.mono, fontSize: 12, background: C.tealSoft,
-                    padding: 10, wordBreak: 'break-all', marginBottom: 16 }}>
-          {invite}
+        <p style={{ fontFamily: fonts.mono, fontSize: 12, background: C.tealSoft, padding: 10, borderRadius: 8, wordBreak: 'break-all' }}>
+          {invite}<br />
+          <span style={{ color: C.inkSoft }}>Одноразовая, живёт 72 часа. Передайте лично.</span>
         </p>
       )}
-      <h2 style={{ fontFamily: fonts.mono, fontSize: 16, margin: '16px 0 10px' }}>
-        Все группы
-      </h2>
-      {groups.length === 0 && <p style={{ color: C.inkSoft }}>Групп пока нет.</p>}
+      <div style={{ fontWeight: 700, fontSize: 15 }}>Все группы</div>
+      {groups.length === 0 && <p style={{ color: C.inkSoft, fontSize: 14 }}>Групп пока нет.</p>}
       {groups.map((g) => (
-        <div key={g.id} style={{ background: C.card, border: `1px solid ${C.line}`,
-                                 padding: 14, marginBottom: 8, display: 'flex',
-                                 justifyContent: 'space-between' }}>
-          <strong>{g.name}</strong>
-          <span style={{ fontFamily: fonts.mono, fontSize: 13, color: C.inkSoft }}>
-            неделя {g.current_week} · участников: {g.members_count}
-          </span>
-        </div>
+        <Card key={g.id}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <strong style={{ fontSize: 15.5 }}>{g.name}</strong>
+            <span style={{ fontFamily: fonts.mono, fontSize: 12.5, color: C.inkSoft }}>
+              неделя {g.current_week} · участников: {g.members_count}
+            </span>
+          </div>
+        </Card>
       ))}
+      <p style={{ fontSize: 12.5, color: C.inkSoft, lineHeight: 1.5 }}>
+        Суперадмин видит только метаданные групп. Содержание практик участников недоступно никому.
+      </p>
     </div>
   )
 }

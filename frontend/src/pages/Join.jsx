@@ -1,12 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { acceptInvite, api } from '../api.js'
-import { C, fonts } from '../tokens.js'
-
-const input = {
-  width: '100%', padding: '10px 12px', marginBottom: 12,
-  border: `1px solid ${C.line}`, background: C.card,
-  fontFamily: fonts.sans, fontSize: 15,
-}
+import { C, fonts, inputStyle } from '../tokens.js'
+import { Btn, Card, Tag } from '../components/ui.jsx'
 
 export default function Join({ token, onDone }) {
   const [info, setInfo] = useState(null)
@@ -28,32 +23,35 @@ export default function Join({ token, onDone }) {
     } catch (err) { setError(err.message) }
   }
 
-  if (error && !info) return <p style={{ color: C.danger }}>{error}</p>
-  if (!info) return <p>Проверяю приглашение…</p>
+  if (error && !info) return <p style={{ color: C.red, textAlign: 'center', marginTop: 60 }}>{error}</p>
+  if (!info) return <p style={{ color: C.inkSoft, textAlign: 'center', marginTop: 60 }}>Проверяю приглашение…</p>
 
   return (
-    <div style={{ maxWidth: 420, margin: '60px auto', background: C.card,
-                  border: `1px solid ${C.line}`, padding: 28 }}>
-      <h1 style={{ fontFamily: fonts.mono, fontSize: 18, marginBottom: 8 }}>
-        Приглашение: {info.role === 'curator' ? 'куратор' : 'участник'}
-      </h1>
-      {info.group_name && (
-        <p style={{ color: C.inkSoft, marginBottom: 16 }}>Группа: {info.group_name}</p>
-      )}
-      <form onSubmit={submit}>
-        <input style={input} placeholder="имя" value={form.name} required
-               onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <input style={input} type="email" placeholder="email" value={form.email} required
-               onChange={(e) => setForm({ ...form, email: e.target.value })} />
-        <input style={input} type="password" placeholder="пароль (мин. 10 символов)"
-               minLength={10} value={form.password} required
-               onChange={(e) => setForm({ ...form, password: e.target.value })} />
-        {error && <p style={{ color: C.danger, fontSize: 13, marginBottom: 12 }}>{error}</p>}
-        <button type="submit" style={{
-          width: '100%', padding: '10px 0', background: C.teal, color: C.card,
-          border: 'none', fontFamily: fonts.mono, fontSize: 15, cursor: 'pointer',
-        }}>создать аккаунт</button>
-      </form>
+    <div style={{ maxWidth: 420, margin: '48px auto 0' }}>
+      <div style={{ textAlign: 'center', marginBottom: 20 }}>
+        <div style={{ fontFamily: fonts.mono, fontWeight: 600, fontSize: 30, letterSpacing: '-.02em', color: C.ink }}>
+          ОПТИКА<span style={{ color: C.teal }}>_</span>
+        </div>
+      </div>
+      <Card style={{ padding: 26 }}>
+        <div style={{ marginBottom: 6 }}>
+          <Tag>{info.role === 'curator' ? 'приглашение куратора' : 'приглашение участника'}</Tag>
+        </div>
+        {info.group_name && (
+          <p style={{ color: C.inkSoft, fontSize: 14, margin: '6px 0 14px' }}>Группа: <b style={{ color: C.ink }}>{info.group_name}</b></p>
+        )}
+        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <input style={inputStyle} placeholder="имя" value={form.name} required autoFocus
+                 onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <input style={inputStyle} type="email" placeholder="email" value={form.email} required
+                 onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <input style={inputStyle} type="password" placeholder="пароль (мин. 10 символов)"
+                 minLength={10} value={form.password} required
+                 onChange={(e) => setForm({ ...form, password: e.target.value })} />
+          {error && <p style={{ color: C.red, fontSize: 13, margin: 0 }}>{error}</p>}
+          <Btn type="submit">создать аккаунт</Btn>
+        </form>
+      </Card>
     </div>
   )
 }

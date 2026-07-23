@@ -32,18 +32,23 @@ export default function App() {
   const shell = (content) => (
     <div style={{ ...gridBg, minHeight: '100vh', fontFamily: fonts.sans, color: C.ink }}>
       <header style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '14px 24px', borderBottom: `1px solid ${C.line}`, background: C.card,
+        position: 'sticky', top: 0, zIndex: 20,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+        padding: '12px 24px', borderBottom: `1px solid ${C.grid}`,
+        background: 'rgba(255,255,255,.88)', backdropFilter: 'blur(6px)',
       }}>
-        <span style={{ fontFamily: fonts.mono, fontWeight: 500, color: C.teal }}>
-          ОПТИКА<span style={{ color: C.inkSoft }}> · прибор для наблюдения за мышлением</span>
+        <span style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+          <span style={{ fontFamily: fonts.mono, fontWeight: 600, fontSize: 19, letterSpacing: '-.02em', color: C.ink }}>
+            ОПТИКА<span style={{ color: C.teal }}>_</span>
+          </span>
+          <span style={{ fontSize: 12, color: C.inkSoft }}>прибор для наблюдения за мышлением</span>
         </span>
         {me && (
           <span style={{ fontFamily: fonts.mono, fontSize: 13, color: C.inkSoft }}>
             {me.name} · {me.role}{' '}
-            <button onClick={handleLogout} style={{
-              marginLeft: 12, border: `1px solid ${C.line}`, background: 'transparent',
-              fontFamily: fonts.mono, cursor: 'pointer', padding: '4px 10px', color: C.ink,
+            <button className="btn-ghost" onClick={handleLogout} style={{
+              marginLeft: 12, border: `1px solid ${C.grid}`, borderRadius: 8, background: 'transparent',
+              fontFamily: fonts.mono, padding: '4px 10px', color: C.ink,
             }}>выйти</button>
           </span>
         )}

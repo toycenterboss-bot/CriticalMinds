@@ -480,6 +480,7 @@ export default function Participant({ me }) {
           {tabs.map(([id, label]) => (
             <button
               key={id}
+              className="navtab"
               onClick={() => { setTab(id); setActiveLesson(null); setShowQuiz(false); setViewWeek(null) }}
               style={{
                 flex: 1, padding: '13px 4px 15px', background: 'none', border: 'none', cursor: 'pointer',

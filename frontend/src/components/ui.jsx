@@ -7,6 +7,7 @@ export const Btn = ({ children, onClick, variant = 'primary', disabled, small, t
     type={type || 'button'}
     onClick={onClick}
     disabled={disabled}
+    className={variant === 'ghost' ? 'btn-ghost' : 'btn-primary'}
     style={{
       fontFamily: fonts.sans, fontWeight: 600,
       fontSize: small ? 13 : 15,

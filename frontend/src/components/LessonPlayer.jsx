@@ -163,24 +163,34 @@ export default function LessonPlayer({ lesson, onDone, onJournal }) {
                     mark = 'не выбран ✓'; markColor = C.inkSoft
                   }
                 }
+                const verdict = checkDone ? mark : s.labels ? (sel ? s.labels[0] : s.labels[1]) : ''
                 return (
                   <div key={i}>
                     <button
+                      className="opt"
+                      disabled={checkDone}
                       onClick={() => !checkDone && setCheckSel({ ...checkSel, [i]: !sel })}
                       style={{
-                        width: '100%', textAlign: 'left', padding: '11px 15px', borderRadius: 10, fontSize: 14.5, cursor: 'pointer',
+                        width: '100%', textAlign: 'left', padding: '11px 15px', borderRadius: 10, fontSize: 14.5,
                         fontFamily: fonts.sans, border, background: bg,
                       }}
                     >
-                      {!s.labels && (
-                        <span style={{ fontFamily: fonts.mono, marginRight: 8, color: sel ? C.teal : C.inkSoft }}>
-                          {sel ? '■' : '▢'}
+                      <span style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+                        {!s.labels && (
+                          <span style={{ fontFamily: fonts.mono, color: sel ? C.teal : C.inkSoft, flexShrink: 0 }}>
+                            {sel ? '■' : '▢'}
+                          </span>
+                        )}
+                        <span style={{ flex: 1, lineHeight: 1.45 }}>{o.t}</span>
+                        {!checkDone && s.labels && (
+                          <span style={{ fontFamily: fonts.mono, fontSize: 11, fontWeight: 600, color: C.inkSoft, flexShrink: 0 }}>{verdict}</span>
+                        )}
+                      </span>
+                      {checkDone && verdict && (
+                        <span style={{ display: 'block', textAlign: 'right', fontFamily: fonts.mono, fontSize: 11, fontWeight: 600, color: markColor, marginTop: 7, paddingTop: 7, borderTop: `1px dashed ${C.grid}` }}>
+                          {verdict}
                         </span>
                       )}
-                      {o.t}
-                      <span style={{ float: 'right', fontFamily: fonts.mono, fontSize: 11, fontWeight: 600, color: markColor, marginLeft: 8 }}>
-                        {checkDone ? mark : s.labels ? (sel ? s.labels[0] : s.labels[1]) : ''}
-                      </span>
                     </button>
                     {checkDone && (
                       <p style={{ fontSize: 13, color: C.inkSoft, margin: '5px 4px 0', lineHeight: 1.5 }}>{o.fb}</p>
