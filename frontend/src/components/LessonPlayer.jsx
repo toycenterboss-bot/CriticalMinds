@@ -157,8 +157,10 @@ export default function LessonPlayer({ lesson, onDone, onJournal }) {
                     border = `2px solid ${C.red}`; bg = C.redSoft
                     mark = 'ваш ответ: выбран ✗ · выбирать не стоило'; markColor = C.red
                   } else {
-                    border = `2px solid ${C.teal}`; bg = C.tealSoft
-                    mark = 'ваш ответ: не выбран ✓'; markColor = C.teal
+                    // Правильно проигнорированный вариант: подтверждаем, но тихо —
+                    // яркая заливка только там, где было действие или ошибка.
+                    border = `1.5px solid ${C.grid}`; bg = C.white
+                    mark = 'не выбран ✓'; markColor = C.inkSoft
                   }
                 }
                 return (
