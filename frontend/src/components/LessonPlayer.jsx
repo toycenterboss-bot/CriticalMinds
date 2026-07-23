@@ -149,15 +149,16 @@ export default function LessonPlayer({ lesson, onDone, onJournal }) {
                     markColor = right ? C.teal : C.red
                   } else if (o.ok && sel) {
                     border = `2px solid ${C.teal}`; bg = C.tealSoft
-                    mark = '✓ ваш выбор — верно'; markColor = C.teal
+                    mark = 'ваш ответ: выбран ✓'; markColor = C.teal
                   } else if (o.ok && !sel) {
                     border = `2px solid ${C.red}`; bg = C.redSoft
-                    mark = '✗ вы не выбрали верный'; markColor = C.red
+                    mark = 'ваш ответ: не выбран ✗ · надо было выбрать'; markColor = C.red
                   } else if (!o.ok && sel) {
                     border = `2px solid ${C.red}`; bg = C.redSoft
-                    mark = '✗ ваш выбор — неверно'; markColor = C.red
+                    mark = 'ваш ответ: выбран ✗ · выбирать не стоило'; markColor = C.red
                   } else {
-                    border = `1.5px solid ${C.grid}`; bg = C.white
+                    border = `2px solid ${C.teal}`; bg = C.tealSoft
+                    mark = 'ваш ответ: не выбран ✓'; markColor = C.teal
                   }
                 }
                 return (
@@ -193,11 +194,7 @@ export default function LessonPlayer({ lesson, onDone, onJournal }) {
             )}
             {checkDone && (
               <div style={{ marginTop: 12, fontFamily: fonts.mono, fontSize: 13, fontWeight: 600, color: rightCount === s.options.length ? C.teal : C.red }}>
-                {s.labels
-                  ? `Верно: ${rightCount} из ${s.options.length}`
-                  : rightCount === s.options.length
-                    ? '✓ Без ошибок'
-                    : `✗ Ошибок: ${s.options.length - rightCount}`}
+                Верно: {rightCount} из {s.options.length}
               </div>
             )}
             <div style={{ marginTop: 14 }}>
