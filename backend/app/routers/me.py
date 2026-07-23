@@ -6,16 +6,18 @@ from sqlalchemy.orm import Session
 
 from ..auth import get_current_user
 from ..db import get_db
+from ..content import MEETING_COMMON
 from ..models import (
     Group, GroupMember, JournalEntry, Lesson, LessonProgress, MaterialCheck,
-    MoodCheckin, Prediction, QuizAnswer, QuizAttempt, QuizQuestion, User,
-    WeekMaterial,
+    MeetingCard, MeetingLog, MoodCheckin, Prediction, QuizAnswer, QuizAttempt,
+    QuizQuestion, User, WeekMaterial,
 )
 from ..schemas import (
     CalibrationPoint, JournalEntryIn, JournalEntryOut, LessonListItem, LessonOut,
-    MeOut, MoodDay, MoodIn, MoodOut, PredictionIn, PredictionOut, QuizCurrentOut,
-    QuizQuestionOut, QuizQuestionResult, QuizResultOut, QuizSubmitIn, ResolveIn,
-    TournamentOut, WeekMaterialOut, WeekStatus,
+    MeetingLogIn, MeetingLogOut, MeetingsOut, MeOut, MoodDay, MoodIn, MoodOut,
+    PredictionIn, PredictionOut, QuizCurrentOut, QuizQuestionOut,
+    QuizQuestionResult, QuizResultOut, QuizSubmitIn, ResolveIn, TournamentOut,
+    WeekMaterialOut, WeekStatus,
 )
 
 router = APIRouter(prefix="/me", tags=["me"])
@@ -308,6 +310,57 @@ def quiz_submit(body: QuizSubmitIn, user: User = Depends(get_current_user),
     attempt.hits = hits
     db.commit()
     return QuizResultOut(hits=hits, total=attempt.total, results=results)
+
+
+@router.get("/meetings", response_model=MeetingsOut)
+def meetings(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Все 12 сценарных карточек + общий контекст. Не гейтится:
+    сценарии встреч открыты для чтения вперёд (ведущему нужно готовиться)."""
+    cards = [m.data for m in db.query(MeetingCard).order_by(MeetingCard.week)]
+    return MeetingsOut(common=MEETING_COMMON, cards=cards)
+
+
+def _log_out(db: Session, log: MeetingLog) -> MeetingLogOut:
+    author = db.get(User, log.created_by)
+    return MeetingLogOut(
+        id=log.id, week=log.week, held_at=log.held_at.isoformat(),
+        facilitator=log.facilitator, summary=log.summary,
+        agreements=log.agreements, author=author.name if author else "—",
+    )
+
+
+@router.get("/meeting-logs", response_model=list[MeetingLogOut])
+def meeting_logs(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    gm = db.query(GroupMember).filter(GroupMember.user_id == user.id).first()
+    if gm is None:
+        return []
+    rows = db.query(MeetingLog).filter(MeetingLog.group_id == gm.group_id) \
+             .order_by(MeetingLog.week).all()
+    return [_log_out(db, r) for r in rows]
+
+
+@router.post("/meeting-logs", response_model=MeetingLogOut, status_code=201)
+def meeting_log_add(body: MeetingLogIn, user: User = Depends(get_current_user),
+                    db: Session = Depends(get_db)):
+    gm = db.query(GroupMember).filter(GroupMember.user_id == user.id).first()
+    if gm is None:
+        raise HTTPException(409, "Вы не состоите в группе")
+    if db.query(MeetingLog).filter(
+        MeetingLog.group_id == gm.group_id, MeetingLog.week == body.week,
+    ).first():
+        raise HTTPException(409, f"Встреча недели {body.week} уже зарегистрирована")
+    try:
+        held = date.fromisoformat(body.held_at) if body.held_at else _utcnow().date()
+    except ValueError:
+        raise HTTPException(422, "Дата встречи: ожидается формат ГГГГ-ММ-ДД")
+    row = MeetingLog(
+        group_id=gm.group_id, week=body.week, held_at=held,
+        facilitator=body.facilitator, summary=body.summary,
+        agreements=body.agreements, created_by=user.id,
+    )
+    db.add(row)
+    db.commit()
+    return _log_out(db, row)
 
 
 @router.get("/materials", response_model=list[WeekMaterialOut])

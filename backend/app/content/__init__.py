@@ -4,6 +4,7 @@
 """
 from . import module1, module2, module3, module4
 from .materials import MATERIALS
+from .meetings import MEETING_CARDS, MEETING_COMMON
 
 ALL_LESSONS = (
     module1.LESSONS + module2.LESSONS + module3.LESSONS + module4.LESSONS

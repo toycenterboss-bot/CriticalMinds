@@ -140,6 +140,33 @@ class QuizAttempt(Base):
     __table_args__ = (UniqueConstraint("user_id", "week"),)
 
 
+class MeetingCard(Base):
+    """Сценарная карточка встречи недели. Контент = данные (JSON целиком)."""
+    __tablename__ = "meeting_cards"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    week: Mapped[int] = mapped_column(Integer, unique=True, index=True)
+    data: Mapped[dict] = mapped_column(JSON)
+
+
+class MeetingLog(Base):
+    """Артефакт прошедшей встречи: групповой (виден всей группе и куратору).
+
+    Это НЕ личные записи: журнал встречи — общий документ группы,
+    сюда попадают только совместные выводы и договорённости.
+    """
+    __tablename__ = "meeting_logs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    group_id: Mapped[int] = mapped_column(ForeignKey("groups.id"), index=True)
+    week: Mapped[int] = mapped_column(Integer)
+    held_at: Mapped[date] = mapped_column(Date)
+    facilitator: Mapped[str] = mapped_column(String(120))  # ведущий (ротируется)
+    summary: Mapped[str] = mapped_column(Text)             # ключевые выводы
+    agreements: Mapped[str | None] = mapped_column(Text, nullable=True)  # договорённости
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    __table_args__ = (UniqueConstraint("group_id", "week"),)
+
+
 class WeekMaterial(Base):
     """Оффлайн-задание недели: статьи + что принести. Контент = данные."""
     __tablename__ = "week_materials"

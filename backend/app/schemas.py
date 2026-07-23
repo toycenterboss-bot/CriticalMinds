@@ -203,6 +203,47 @@ class WeekStatus(BaseModel):
     i_was_first: bool        # я завершил эту неделю первым в группе
 
 
+class MeetingsOut(BaseModel):
+    """Все карточки встреч + общий контекст (каркас, правила, сбои)."""
+    common: dict
+    cards: list[dict]
+
+
+class MeetingLogIn(BaseModel):
+    week: int = Field(ge=1, le=12)
+    held_at: str | None = None      # ISO-дата; по умолчанию сегодня
+    facilitator: str
+    summary: str
+    agreements: str | None = None
+
+    @field_validator("facilitator")
+    @classmethod
+    def _v_fac(cls, v: str) -> str:
+        return clean_text(v, field="Ведущий", min_len=2, max_len=120, min_letters=2)
+
+    @field_validator("summary")
+    @classmethod
+    def _v_sum(cls, v: str) -> str:
+        return clean_text(v, field="Выводы", min_len=10, max_len=4000)
+
+    @field_validator("agreements")
+    @classmethod
+    def _v_agr(cls, v: str | None) -> str | None:
+        if v is None or not v.strip():
+            return None
+        return clean_text(v, field="Договорённости", min_len=5, max_len=4000, min_letters=3)
+
+
+class MeetingLogOut(BaseModel):
+    id: int
+    week: int
+    held_at: str
+    facilitator: str
+    summary: str
+    agreements: str | None
+    author: str
+
+
 class MaterialLink(BaseModel):
     title: str
     url: str

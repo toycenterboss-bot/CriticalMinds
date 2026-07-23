@@ -7,7 +7,7 @@ import { Btn, Card, Tag } from '../components/ui.jsx'
 import LessonPlayer from '../components/LessonPlayer.jsx'
 import CalibrationChart from '../components/CalibrationChart.jsx'
 import Quiz from '../components/Quiz.jsx'
-import { CARD1 } from '../data/meeting.js'
+import MeetingTab from '../components/MeetingTab.jsx'
 
 // Мягкая клиентская проверка (жёсткая — на бэкенде, schemas.clean_text)
 export const validateEntry = (e) => {
@@ -509,37 +509,8 @@ export default function Participant({ me }) {
 
       {/* ВСТРЕЧА */}
       {tab === 'meet' && (
-        <div className="fade-up" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <H>Встреча недели {CARD1.week}</H>
-          <Card style={{ borderLeft: `4px solid ${C.teal}` }}>
-            <Tag>Сценарная карточка ведущего</Tag>
-            <div style={{ fontWeight: 700, fontSize: 17, margin: '10px 0 4px' }}>{CARD1.title}</div>
-            <div style={{ fontSize: 13, color: C.inkSoft }}>{CARD1.lead}</div>
-            <div style={{ background: C.markerSoft, borderRadius: 10, padding: '10px 14px', fontSize: 13.5, margin: '12px 0', lineHeight: 1.5 }}>
-              <b>Цель:</b> {CARD1.goal}
-            </div>
-            {CARD1.timeline.map(([t, d], i) => (
-              <div key={i} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: i < CARD1.timeline.length - 1 ? `1px dashed ${C.grid}` : 'none' }}>
-                <span style={{ fontFamily: fonts.mono, fontSize: 12.5, color: C.teal, fontWeight: 600, minWidth: 44 }}>{t}</span>
-                <span style={{ fontSize: 13.5, lineHeight: 1.45 }}>{d}</span>
-              </div>
-            ))}
-            <div style={{ marginTop: 12, fontSize: 13, fontStyle: 'italic', color: C.inkSoft }}>
-              Фраза-камертон, если группа зажата: {CARD1.phrase}
-            </div>
-          </Card>
-          <Card>
-            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>Правила группы (оборот карточки)</div>
-            {CARD1.rules.map((r, i) => (
-              <div key={i} style={{ display: 'flex', gap: 10, padding: '5px 0', fontSize: 14 }}>
-                <span style={{ fontFamily: fonts.mono, color: C.teal, fontWeight: 600 }}>{i + 1}</span>
-                <span>{r}</span>
-              </div>
-            ))}
-          </Card>
-          <p style={{ fontSize: 13, color: C.inkSoft, lineHeight: 1.5 }}>
-            «Что принести на встречу» — записи с пометкой «поделиться»: {journal.filter((e) => e.shared).length} шт.
-          </p>
+        <div className="fade-up">
+          <MeetingTab activeWeek={activeWeek} sharedCount={journal.filter((e) => e.shared).length} />
         </div>
       )}
 

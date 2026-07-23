@@ -16,11 +16,11 @@ from ..db import get_db
 from ..flags import team_flags
 from ..models import (
     Group, GroupMember, Invite, JournalEntry, Lesson, LessonProgress,
-    MaterialCheck, MoodCheckin, Prediction, QuizAttempt, Role, User,
+    MaterialCheck, MeetingLog, MoodCheckin, Prediction, QuizAttempt, Role, User,
 )
 from ..routers.me import current_week
 from ..schemas import (
-    GroupCreateIn, GroupDashboard, GroupOut, InviteLinkOut,
+    GroupCreateIn, GroupDashboard, GroupOut, InviteLinkOut, MeetingLogOut,
     MemberLessonMeta, MemberMeta, MoodAggregate,
 )
 
@@ -177,6 +177,24 @@ def group_dashboard(group_id: int, user: User = Depends(get_current_user),
         flags=team_flags(metas, week, _utcnow()),
         mood=_mood_aggregate(db, [m.id for m in members]),
     )
+
+
+@router.get("/groups/{group_id}/meeting-logs", response_model=list[MeetingLogOut])
+def group_meeting_logs(group_id: int, user: User = Depends(get_current_user),
+                       db: Session = Depends(get_db)):
+    """Журнал встреч — групповой артефакт (совместные выводы), куратору доступен."""
+    g = get_own_group(group_id, user, db)
+    rows = db.query(MeetingLog).filter(MeetingLog.group_id == g.id) \
+             .order_by(MeetingLog.week).all()
+    result = []
+    for r in rows:
+        author = db.get(User, r.created_by)
+        result.append(MeetingLogOut(
+            id=r.id, week=r.week, held_at=r.held_at.isoformat(),
+            facilitator=r.facilitator, summary=r.summary,
+            agreements=r.agreements, author=author.name if author else "—",
+        ))
+    return result
 
 
 @router.post("/groups/{group_id}/invites", response_model=InviteLinkOut, status_code=201)
